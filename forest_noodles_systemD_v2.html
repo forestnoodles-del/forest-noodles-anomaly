@@ -1,0 +1,1860 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>森林麵食｜訂單異常管理</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Bitter:wght@400;700&display=swap');
+:root{
+  --forest:#145532;--green:#288750;--noodle:#D7C86E;--noodle-d:#b8a030;
+  --charcoal:#231914;--white:#fff;--lgrey:#F0F0F0;--mgrey:#BEB9B9;
+  --red:#C0392B;--red-l:#FFF0EE;--yellow:#b8900a;--yellow-l:#FDF5DC;
+  --green-l:#E3F4EC;--orange:#C05800;--orange-l:#FFF5EC;
+  --purple:#6C3483;--purple-l:#F5F0FF;--border:#d8d4cc;
+  --text:#231914;--muted:#8a8280;--card:#fff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Noto Sans TC",sans-serif;background:#f0f0f0;color:var(--text);font-size:13px;line-height:1.6}
+
+/* HEADER */
+.hdr{background:var(--forest);color:#fff;padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;border-bottom:3px solid var(--noodle)}
+.hdr-left{display:flex;align-items:center;gap:12px}
+.hdr-title{font-family:"Bitter",serif;font-size:14px;font-weight:700}
+.hdr-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px}
+.hdr-right{display:flex;align-items:center;gap:12px}
+.sync-btn{padding:5px 12px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:5px;color:#fff;font-size:11px;font-family:"Bitter",serif;cursor:pointer;display:flex;align-items:center;gap:5px;transition:background .15s}
+.sync-btn:hover{background:rgba(255,255,255,.2)}
+.sync-indicator{width:7px;height:7px;border-radius:50%;background:var(--noodle)}
+.sync-indicator.syncing{animation:pulse .8s infinite}
+.sync-indicator.error{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.hstat{text-align:right}
+.hstat-val{font-family:"Bitter",serif;font-size:16px;font-weight:700;color:var(--noodle);line-height:1}
+.hstat-label{font-size:9px;color:rgba(255,255,255,.45);letter-spacing:.5px}
+
+/* TABS */
+.tabs{background:#fff;border-bottom:1px solid var(--border);display:flex;overflow-x:auto;padding:0 20px;position:sticky;top:52px;z-index:100}
+.tab{padding:11px 16px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .15s;margin-bottom:-1px}
+.tab:hover{color:var(--green)}
+.tab.active{color:var(--forest);border-bottom-color:var(--noodle);font-weight:700}
+.tb-badge{background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:9px;font-family:"Bitter",serif;margin-left:4px;vertical-align:middle}
+
+/* LAYOUT */
+.main{padding:16px;max-width:1440px;margin:0 auto}
+.panel{display:none}.panel.active{display:block}
+
+/* PERIOD FILTER BAR */
+.period-bar{background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.period-preset{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;font-family:"Bitter",serif;cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--muted);transition:all .15s}
+.period-preset:hover,.period-preset.active{background:var(--forest);color:#fff;border-color:var(--forest)}
+.period-divider{width:1px;height:20px;background:var(--border);margin:0 4px}
+.period-input{padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:"Noto Sans TC",sans-serif;background:#fff;outline:none}
+.period-input:focus{border-color:var(--green)}
+
+/* FILTER BAR */
+.filter-bar{background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filter-bar select,.filter-bar input{padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:"Noto Sans TC",sans-serif;background:#fff;outline:none;transition:border-color .15s}
+.filter-bar select:focus,.filter-bar input:focus{border-color:var(--green)}
+.filter-label{font-size:9px;font-family:"Bitter",serif;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.filter-count{font-size:11px;color:var(--muted)}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.stat{background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px 14px;position:relative;overflow:hidden}
+.stat::after{content:"";position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--noodle);opacity:.4}
+.stat.s-red::after{background:var(--red);opacity:1}
+.stat.s-orange::after{background:var(--orange);opacity:1}
+.stat.s-green::after{background:var(--green);opacity:1}
+.stat.s-purple::after{background:var(--purple);opacity:1}
+.stat-val{font-family:"Bitter",serif;font-size:24px;font-weight:700;line-height:1}
+.stat-label{font-size:9px;color:var(--muted);font-family:"Bitter",serif;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:3px}
+.s-red .stat-val{color:var(--red)}.s-orange .stat-val{color:var(--orange)}
+.s-green .stat-val{color:var(--green)}.s-purple .stat-val{color:var(--purple)}
+
+/* CHARTS */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px}
+.chart-title{font-size:9px;font-family:"Bitter",serif;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.bar-label{font-size:11px;min-width:90px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;height:12px;background:var(--lgrey);border-radius:6px;overflow:hidden}
+.bar-fill{height:100%;border-radius:6px;transition:width .4s ease}
+.bar-count{font-family:"Bitter",serif;font-size:11px;font-weight:700;min-width:22px;text-align:right;color:var(--muted)}
+.month-grid{display:flex;gap:6px;align-items:flex-end;height:90px;padding-top:8px}
+.month-col{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
+.month-bar{width:100%;border-radius:3px 3px 0 0;background:var(--green);transition:height .4s;min-height:3px}
+.month-lbl{font-size:9px;color:var(--muted);font-family:"Bitter",serif}
+.month-cnt{font-size:10px;font-weight:700;font-family:"Bitter",serif;color:var(--text)}
+
+/* TABLE */
+.tbl-wrap{background:#fff;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{background:var(--lgrey);padding:8px 10px;text-align:left;font-family:"Bitter",serif;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:2px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{background:#e4e0d8}
+td{padding:8px 10px;border-bottom:1px solid #f0ece4;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafaf7}
+tr.resolved td{opacity:.55}
+.warn-row td{background:#fffbf0!important}
+
+/* BADGE */
+.badge{display:inline-block;padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700;font-family:"Bitter",serif;letter-spacing:.3px;white-space:nowrap}
+.b-red{background:var(--red-l);color:var(--red)}
+.b-orange{background:var(--orange-l);color:var(--orange)}
+.b-yellow{background:var(--yellow-l);color:var(--yellow)}
+.b-green{background:var(--green-l);color:var(--green)}
+.b-purple{background:var(--purple-l);color:var(--purple)}
+.b-grey{background:var(--lgrey);color:var(--muted)}
+.b-blue{background:#e8f4fc;color:#1a5276}
+.b-warn{background:#fff3cd;color:#856404;border:1px solid #ffc107}
+
+/* MODAL */
+.mo{display:none;position:fixed;inset:0;background:rgba(35,25,20,.5);z-index:300;align-items:center;justify-content:center}
+.mo.open{display:flex}
+.modal{background:#fff;border-radius:10px;width:94%;max-width:720px;max-height:90vh;overflow-y:auto;border-top:4px solid var(--green);display:flex;flex-direction:column}
+.modal-hdr{padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-shrink:0}
+.modal-title{font-family:"Bitter",serif;font-size:15px;font-weight:700;color:var(--forest)}
+.modal-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);line-height:1;padding:0}
+.modal-body{padding:16px 20px;overflow-y:auto}
+.modal-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;background:#fff}
+
+/* FORM */
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.fg-full{grid-column:1/-1}
+.fl{display:flex;flex-direction:column;gap:4px}
+.fl label{font-size:9px;font-family:"Bitter",serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+.fi,.fs,.fta{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:"Noto Sans TC",sans-serif;background:#fff;outline:none;transition:border-color .15s,box-shadow .15s}
+.fi:focus,.fs:focus,.fta:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(40,135,80,.08)}
+.fi.required-empty{border-color:var(--red)!important;background:var(--red-l)!important}
+.fta{resize:vertical;min-height:72px}
+
+/* REQUIRED NOTICE */
+.required-notice{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--yellow-l);border:1px solid var(--yellow);border-radius:6px;font-size:11px;color:var(--yellow);margin-bottom:12px}
+.required-notice svg{flex-shrink:0}
+
+/* BTN */
+.btn{padding:7px 14px;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:"Noto Sans TC",sans-serif;transition:all .15s;display:inline-flex;align-items:center;gap:5px}
+.btn-primary{background:var(--green);color:#fff}.btn-primary:hover{background:var(--forest)}
+.btn-resolve{background:var(--forest);color:#fff}.btn-resolve:hover{background:#0d3820}
+.btn-outline{background:#fff;color:var(--green);border:1.5px solid var(--green)}.btn-outline:hover{background:var(--green-l)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}.btn-ghost:hover{background:var(--lgrey);color:var(--text)}
+.btn-red{background:var(--red);color:#fff}
+.btn-sm{padding:4px 10px;font-size:11px}
+.btn-xs{padding:3px 7px;font-size:10px;border-radius:4px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* DETAIL FIELDS */
+.df-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.df{display:flex;flex-direction:column;gap:3px}
+.df label{font-size:9px;font-family:"Bitter",serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+.df-val{font-size:12px;padding:7px 10px;background:var(--lgrey);border-radius:5px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.df-val.hl{background:var(--red-l);color:var(--red);font-weight:700}
+.df-val.mono{font-family:"Bitter",serif}
+.df-full{grid-column:1/-1}
+.improve-box{background:var(--green-l);border-left:3px solid var(--green);border-radius:0 6px 6px 0;padding:10px 14px;font-size:12px;line-height:1.7;white-space:pre-wrap;margin-top:10px}
+.warn-box{background:var(--yellow-l);border-left:3px solid var(--yellow);border-radius:0 6px 6px 0;padding:10px 14px;font-size:12px;margin-top:10px;display:flex;align-items:center;gap:8px}
+
+/* GOOGLE SHEETS CONFIG */
+.sheets-config{background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:14px}
+.sheets-config input{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:monospace;margin-top:6px;outline:none}
+.sheets-config input:focus{border-color:var(--green)}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--forest);color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:700;font-family:"Bitter",serif;z-index:999;transform:translateY(60px);opacity:0;transition:all .3s;pointer-events:none;border-left:3px solid var(--noodle)}
+.toast.show{transform:translateY(0);opacity:1}
+
+
+/* ══ 照片上傳元件 ══ */
+.photo-upload-area{border:2px dashed var(--border);border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:all .2s;background:#fff;position:relative}
+.photo-upload-area:hover,.photo-upload-area.drag-over{border-color:var(--green);background:var(--green-l)}
+.photo-upload-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.photo-thumb{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--lgrey)}
+.photo-thumb img{width:100%;height:100%;object-fit:cover}
+.photo-thumb .remove-btn{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;line-height:1}
+.photo-thumb .uploading-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-family:'Bitter',serif}
+.photo-preview-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.photo-preview-item{width:80px;height:80px;border-radius:6px;overflow:hidden;border:1px solid var(--border);cursor:pointer;flex-shrink:0}
+.photo-preview-item img{width:100%;height:100%;object-fit:cover}
+.photo-preview-item:hover{opacity:.85}
+/* ══ 手機響應式 ══ */
+@media(max-width:768px){
+  /* Layout */
+  .main{padding:10px}
+  .chart-grid{grid-template-columns:1fr}
+  .fg{grid-template-columns:1fr}
+  .df-grid{grid-template-columns:1fr}
+  .stats-row{grid-template-columns:1fr 1fr}
+
+  /* Header 手機版 */
+  .hdr{height:auto;padding:10px 14px;flex-wrap:wrap;gap:8px}
+  .hdr-left{flex:1;min-width:0}
+  .hdr-title{font-size:13px}
+  .hdr-sub{display:none}
+  .hdr-right{width:100%;justify-content:space-between;gap:8px}
+  .hstat-val{font-size:14px}
+  .sync-btn{padding:4px 8px;font-size:10px}
+  #sync-time{display:none}
+
+  /* Tabs 手機版：可橫向滾動 */
+  .tabs{padding:0 10px;-webkit-overflow-scrolling:touch}
+  .tab{padding:10px 12px;font-size:11px}
+  #tab-legend{display:none!important}
+
+  /* 統計格 */
+  .stat{padding:10px 12px}
+  .stat-val{font-size:20px}
+
+  /* 表格手機版：橫向滾動 */
+  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{min-width:600px}
+  th,td{padding:7px 8px;font-size:11px}
+
+  /* 篩選列 */
+  .filter-bar{gap:6px}
+  .filter-bar select,.filter-bar input{font-size:11px;padding:4px 6px}
+  .period-bar{gap:5px}
+  .period-preset{padding:3px 8px;font-size:10px}
+  .period-input{font-size:10px;padding:3px 6px}
+
+  /* Modal 手機版 */
+  .modal{width:100%;max-width:100%;max-height:95vh;border-radius:12px 12px 0 0;position:fixed;bottom:0;left:0;right:0}
+  .mo{align-items:flex-end}
+
+  /* 圖表 */
+  .chart-card{padding:12px}
+  .bar-label{min-width:60px;font-size:10px}
+
+  /* Banner */
+  #ov-pending-banner > div{flex-direction:column;gap:10px}
+
+  /* 圖例說明列：手機不顯示 */
+  #tab-legend{display:none}
+
+  /* 負責人統計表格手機截斷 */
+  .staff-tbl-wrap{overflow-x:auto}
+}
+
+@media(max-width:768px){
+  .mobile-scroll-hint{display:block!important}
+}
+@media(max-width:480px){
+  .stats-row{grid-template-columns:1fr}
+  .hdr-right .hstat:not(:first-child){display:none}
+  .modal{max-height:90vh}
+  table{min-width:500px}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-left">
+    <div>
+      <div class="hdr-title">森林麵食｜訂單異常管理</div>
+      <div class="hdr-sub">System D · 一般客訴 / 退貨 / 付款失敗 / 經銷客訴</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="sync-indicator" id="sync-dot"></div>
+      <button class="sync-btn" onclick="syncSheets()" id="sync-btn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6M3 22v-6h6M3 11a9 9 0 0 1 9-9 9 9 0 0 1 6.55 2.84M21 13a9 9 0 0 1-9 9 9 9 0 0 1-6.55-2.84"/></svg>
+        同步 Sheets
+      </button>
+      <span id="sync-time" style="font-size:9px;color:rgba(255,255,255,.45);font-family:'Bitter',serif"></span>
+    </div>
+    <div class="hstat"><div class="hstat-val" id="h-total">—</div><div class="hstat-label">總異常</div></div>
+    <div class="hstat" style="cursor:pointer" onclick="switchTabById('complaints')" title="點擊查看未結案記錄"><div class="hstat-val" id="h-pending" style="color:#FF6B6B">—</div><div class="hstat-label">未結案 ↗</div></div>
+    <div class="hstat"><div class="hstat-val" id="h-warn" style="color:#f1c40f">—</div><div class="hstat-label">未填改善</div></div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" data-tab="overview" onclick="switchTab(this,'overview')">總覽</div>
+  <div class="tab" data-tab="complaints" onclick="switchTab(this,'complaints')">
+    一般客訴
+    <span class="tb-badge" id="tb-c" title="總筆數">0</span>
+    <span class="tb-badge" id="tb-c-warn" style="background:var(--yellow);display:none" title="筆未填負責人或改善方式">!</span>
+  </div>
+  <div class="tab" data-tab="returns" onclick="switchTab(this,'returns')">
+    退貨 <span class="tb-badge" id="tb-r" style="background:var(--orange)" title="退貨總筆數">0</span>
+  </div>
+  <div class="tab" data-tab="payments" onclick="switchTab(this,'payments')">
+    付款失敗 <span class="tb-badge" id="tb-p" style="background:var(--purple)" title="付款失敗總筆數">0</span>
+  </div>
+  <div class="tab" data-tab="dealers" onclick="switchTab(this,'dealers')">
+    經銷客訴
+    <span class="tb-badge" id="tb-d" style="background:var(--forest)" title="總筆數">0</span>
+    <span class="tb-badge" id="tb-d-warn" style="background:var(--yellow);display:none" title="筆未填負責人或改善方式">!</span>
+  </div>
+  <div class="tab" data-tab="settings" onclick="switchTab(this,'settings')">設定</div>
+</div>
+<!-- Tab 圖例說明 -->
+<div style="background:#fffbf0;border-bottom:1px solid var(--border);padding:5px 20px;display:flex;gap:16px;flex-wrap:wrap;align-items:center" id="tab-legend">
+  <span style="font-size:10px;color:var(--muted);font-family:'Bitter',serif;text-transform:uppercase;letter-spacing:.5px">數字說明</span>
+  <span style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px">
+    <span style="background:var(--red);color:#fff;border-radius:8px;padding:1px 5px;font-size:9px;font-family:'Bitter',serif">N</span>
+    總筆數
+  </span>
+  <span style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px">
+    <span style="background:var(--yellow);color:#fff;border-radius:8px;padding:1px 5px;font-size:9px;font-family:'Bitter',serif">!</span>
+    未填負責人或改善方式
+  </span>
+  <span style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px">
+    <span style="background:var(--orange);color:#fff;border-radius:8px;padding:1px 5px;font-size:9px;font-family:'Bitter',serif">N</span>
+    退貨總數
+  </span>
+  <span style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px">
+    <span style="background:var(--purple);color:#fff;border-radius:8px;padding:1px 5px;font-size:9px;font-family:'Bitter',serif">N</span>
+    付款失敗總數
+  </span>
+  <button onclick="document.getElementById('tab-legend').style.display='none'" style="margin-left:auto;font-size:10px;color:var(--muted);background:none;border:none;cursor:pointer;padding:2px 6px">✕ 收起</button>
+</div>
+
+<div class="main">
+
+<!-- ═══ OVERVIEW ═══ -->
+<div class="panel active" id="panel-overview">
+  <!-- Period filter -->
+  <div class="period-bar" id="ov-period">
+    <span class="filter-label">時間區間</span>
+    <button class="period-preset active" onclick="setPeriod('week',this)">本週</button>
+    <button class="period-preset" onclick="setPeriod('month',this)">本月</button>
+    <button class="period-preset" onclick="setPeriod('quarter',this)">本季</button>
+    <button class="period-preset" onclick="setPeriod('year',this)">本年</button>
+    <button class="period-preset" onclick="setPeriod('all',this)">全部</button>
+    <div class="period-divider"></div>
+    <input type="date" class="period-input" id="ov-date-from" onchange="setPeriod('custom',null)">
+    <span style="font-size:11px;color:var(--muted)">—</span>
+    <input type="date" class="period-input" id="ov-date-to" onchange="setPeriod('custom',null)">
+  </div>
+  <!-- 未結案警示 Banner -->
+  <div id="ov-pending-banner" style="display:none;margin-bottom:14px"></div>
+  <div class="stats-row" id="ov-stats"></div>
+  <div class="chart-grid">
+    <div class="chart-card"><div class="chart-title">問題原因分布</div><div id="reason-chart"></div></div>
+    <div class="chart-card"><div class="chart-title">月份趨勢</div><div class="month-grid" id="month-chart"></div></div>
+    <div class="chart-card"><div class="chart-title">平台分布</div><div id="platform-chart"></div></div>
+    <div class="chart-card"><div class="chart-title">責任部門</div><div id="category-chart"></div></div>
+  </div>
+  <!-- 負責人員出錯統計 -->
+  <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div class="chart-title" style="margin-bottom:2px">負責人員出錯統計</div>
+        <div style="font-size:10px;color:var(--muted)">
+          依時間區間篩選・點「明細」查看個別記錄
+          <span style="margin-left:8px;padding:2px 8px;background:rgba(192,57,43,0.1);color:var(--red);border-radius:10px;font-family:'Bitter',serif;font-weight:700">⚠ 3筆以上需關注</span>
+        </div>
+      </div>
+    </div>
+    <div id="ov-staff-stats"></div>
+  </div>
+
+  <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px">
+    <div class="chart-title">⚠️ 未填寫負責人員或改善方式（需立即處理）</div>
+    <div id="ov-warn-list"></div>
+  </div>
+</div>
+
+<!-- ═══ COMPLAINTS ═══ -->
+<div class="panel" id="panel-complaints">
+  <div class="period-bar">
+    <span class="filter-label">時間</span>
+    <button class="period-preset active" onclick="setPeriodFor('c',this,'all')">全部</button>
+    <button class="period-preset" onclick="setPeriodFor('c',this,'week')">本週</button>
+    <button class="period-preset" onclick="setPeriodFor('c',this,'month')">本月</button>
+    <button class="period-preset" onclick="setPeriodFor('c',this,'quarter')">本季</button>
+    <div class="period-divider"></div>
+    <input type="date" class="period-input" id="c-from" onchange="renderComplaints()">
+    <span style="font-size:11px;color:var(--muted)">—</span>
+    <input type="date" class="period-input" id="c-to" onchange="renderComplaints()">
+  </div>
+  <div class="filter-bar">
+    <span class="filter-label">篩選</span>
+    <select id="f-c-platform" onchange="renderComplaints()">
+      <option value="">全部平台</option><option>官網</option><option>蝦皮</option><option>1 shop</option><option>其他</option>
+    </select>
+    <select id="f-c-reason" onchange="renderComplaints()">
+      <option value="">全部原因</option>
+      <option>少寄/寄錯</option><option>盒損/凹損</option><option>異物/鳥屎</option>
+      <option>商品不完整</option><option>效期錯誤</option><option>漏單未出</option><option>已延後但仍出</option><option>重複寄送</option><option>其他</option>
+    </select>
+    <select id="f-c-category" onchange="renderComplaints()">
+      <option value="">全部部門</option><option>出貨</option><option>包裝</option><option>生產</option><option>客服</option><option>行銷</option>
+    </select>
+    <select id="f-c-status" onchange="renderComplaints()">
+      <option value="">全部狀態</option><option value="pending">🔴 未結案</option><option value="resolved">✅ 已結案</option>
+      <option value="no_staff">⚠ 未填負責人</option><option value="no_improve">⚠ 未填改善方式</option>
+    </select>
+    <input id="f-c-search" placeholder="搜尋客戶/訂單/品項..." style="width:160px" oninput="renderComplaints()">
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+      <span class="filter-count" id="c-count"></span>
+      <button class="btn btn-primary btn-sm" onclick="openAdd('complaint')">＋ 新增</button>
+    </div>
+  </div>
+  <div class="mobile-scroll-hint" style="display:none;font-size:10px;color:var(--muted);text-align:right;padding:4px 0;font-family:'Bitter',serif">← 左右滑動查看更多 →</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th onclick="srt('complaints','date')">日期 ↕</th><th>平台</th>
+        <th onclick="srt('complaints','category')">部門 ↕</th>
+        <th onclick="srt('complaints','reason')">問題原因 ↕</th>
+        <th>客戶</th><th>訂單編號</th>
+        <th onclick="srt('complaints','loss')">損失 ↕</th>
+        <th>負責人</th><th>改善方式</th><th>狀態</th><th>操作</th>
+      </tr></thead>
+      <tbody id="c-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ RETURNS ═══ -->
+<div class="panel" id="panel-returns">
+  <div class="period-bar">
+    <span class="filter-label">時間</span>
+    <button class="period-preset active" onclick="setPeriodFor('r',this,'all')">全部</button>
+    <button class="period-preset" onclick="setPeriodFor('r',this,'week')">本週</button>
+    <button class="period-preset" onclick="setPeriodFor('r',this,'month')">本月</button>
+    <button class="period-preset" onclick="setPeriodFor('r',this,'quarter')">本季</button>
+    <div class="period-divider"></div>
+    <input type="date" class="period-input" id="r-from" onchange="renderReturns()">
+    <span style="font-size:11px;color:var(--muted)">—</span>
+    <input type="date" class="period-input" id="r-to" onchange="renderReturns()">
+  </div>
+  <div class="filter-bar">
+    <select id="f-r-channel" onchange="renderReturns()">
+      <option value="">全部通路</option><option>官網</option><option>蝦皮</option>
+    </select>
+    <select id="f-r-status" onchange="renderReturns()">
+      <option value="">全部狀態</option><option value="reshiped">已補寄</option><option value="pending">未補寄</option>
+    </select>
+    <input id="f-r-search" placeholder="搜尋..." style="width:140px" oninput="renderReturns()">
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+      <span class="filter-count" id="r-count"></span>
+      <button class="btn btn-primary btn-sm" onclick="openAdd('return')">＋ 新增</button>
+    </div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th onclick="srt('returns','date')">日期 ↕</th><th>通路</th><th>客戶</th>
+        <th>退貨原因</th><th>品項</th>
+        <th onclick="srt('returns','amount')">金額 ↕</th>
+        <th>補寄</th><th>回購金額</th><th>聯繫記錄</th><th>操作</th>
+      </tr></thead>
+      <tbody id="r-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ PAYMENTS ═══ -->
+<div class="panel" id="panel-payments">
+  <div class="period-bar">
+    <span class="filter-label">時間</span>
+    <button class="period-preset active" onclick="setPeriodFor('p',this,'all')">全部</button>
+    <button class="period-preset" onclick="setPeriodFor('p',this,'week')">本週</button>
+    <button class="period-preset" onclick="setPeriodFor('p',this,'month')">本月</button>
+    <div class="period-divider"></div>
+    <input type="date" class="period-input" id="p-from" onchange="renderPayments()">
+    <span style="font-size:11px;color:var(--muted)">—</span>
+    <input type="date" class="period-input" id="p-to" onchange="renderPayments()">
+  </div>
+  <div class="filter-bar">
+    <select id="f-p-status" onchange="renderPayments()">
+      <option value="">全部</option><option value="repurchased">已回購</option><option value="pending">未回購</option>
+    </select>
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+      <span class="filter-count" id="p-count"></span>
+      <button class="btn btn-primary btn-sm" onclick="openAdd('payment')">＋ 新增</button>
+    </div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th onclick="srt('payment_fails','date')">日期 ↕</th><th>平台</th><th>失敗原因</th>
+        <th>客戶</th><th>品項</th>
+        <th onclick="srt('payment_fails','amount')">金額 ↕</th>
+        <th>聯繫記錄</th><th>回購</th><th>回購金額</th><th>操作</th>
+      </tr></thead>
+      <tbody id="p-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ DEALERS ═══ -->
+<div class="panel" id="panel-dealers">
+  <div class="period-bar">
+    <span class="filter-label">時間</span>
+    <button class="period-preset active" onclick="setPeriodFor('d',this,'all')">全部</button>
+    <button class="period-preset" onclick="setPeriodFor('d',this,'week')">本週</button>
+    <button class="period-preset" onclick="setPeriodFor('d',this,'month')">本月</button>
+    <button class="period-preset" onclick="setPeriodFor('d',this,'quarter')">本季</button>
+    <div class="period-divider"></div>
+    <input type="date" class="period-input" id="d-from" onchange="renderDealers()">
+    <span style="font-size:11px;color:var(--muted)">—</span>
+    <input type="date" class="period-input" id="d-to" onchange="renderDealers()">
+  </div>
+  <div class="filter-bar">
+    <select id="f-d-status" onchange="renderDealers()">
+      <option value="">全部狀態</option><option value="resolved">已結案</option><option value="pending">未結案</option>
+      <option value="no_staff">未填負責人</option><option value="no_improve">未填改善方式</option>
+    </select>
+    <select id="f-d-cat" onchange="renderDealers()">
+      <option value="">全部分類</option><option>出貨</option><option>包裝</option><option>物流</option><option>其他</option>
+    </select>
+    <input id="f-d-search" placeholder="搜尋廠商..." style="width:140px" oninput="renderDealers()">
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+      <span class="filter-count" id="d-count"></span>
+      <button class="btn btn-primary btn-sm" onclick="openAdd('dealer')">＋ 新增</button>
+    </div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th onclick="srt('dealer_complaints','date')">日期 ↕</th><th>廠商</th><th>分類</th>
+        <th>原因</th><th>說明</th><th>負責人</th><th>改善方式</th><th>狀態</th><th>操作</th>
+      </tr></thead>
+      <tbody id="d-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ SETTINGS ═══ -->
+<div class="panel" id="panel-settings">
+  <div class="sheets-config">
+    <div style="font-family:'Bitter',serif;font-size:13px;font-weight:700;color:var(--forest);margin-bottom:4px">Google Sheets 同步設定</div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:14px">設定 Apps Script Web App URL，系統將在新增/修改記錄時即時同步至 Google Sheets</p>
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;font-family:'Bitter',serif;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px">Apps Script Web App URL</div>
+      <input id="cfg-script-url" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:monospace;outline:none">
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-family:'Bitter',serif;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px">Google Sheet ID</div>
+      <input id="cfg-sheet-id" placeholder="14PmqfXJu6QFkCjHhcrlrcqPmw8iBYB0BKeMAhfRDSWg" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:monospace;outline:none">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="saveConfig()">儲存設定</button>
+      <button class="btn btn-outline" onclick="testConnection()">測試連線</button>
+    </div>
+    <div id="conn-result" style="margin-top:10px;font-size:11px"></div>
+  </div>
+
+  <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:14px">
+    <div style="font-family:'Bitter',serif;font-size:13px;font-weight:700;color:var(--forest);margin-bottom:12px">Apps Script 部署說明</div>
+    <div style="font-size:12px;line-height:1.8;color:var(--text)">
+      <p style="margin-bottom:8px">1. 打開你的 Google Sheet → 上方選單「擴充功能」→「Apps Script」</p>
+      <p style="margin-bottom:8px">2. 刪除預設程式碼，貼上下方的 Apps Script 程式碼</p>
+      <p style="margin-bottom:8px">3. 點「部署」→「新增部署作業」→「類型選 Web 應用程式」</p>
+      <p style="margin-bottom:8px">4. 執行身分：「以我的身分」，存取權：「任何人」→ 部署</p>
+      <p style="margin-bottom:12px">5. 複製產生的 URL 貼到上方「Apps Script Web App URL」欄位</p>
+      <div style="background:var(--charcoal);color:#a8d8a8;padding:12px 14px;border-radius:6px;font-family:monospace;font-size:11px;white-space:pre;overflow-x:auto;line-height:1.6" id="script-code">// 載入中...</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<!-- ═══ DETAIL MODAL ═══ -->
+<div class="mo" id="mo-detail">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div>
+        <div class="modal-title" id="det-title"></div>
+        <div id="det-badges" style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap"></div>
+      </div>
+      <button class="modal-close" onclick="closeMo('detail')">✕</button>
+    </div>
+    <div class="modal-body" id="det-body"></div>
+    <div class="modal-footer" id="det-footer"></div>
+  </div>
+</div>
+
+<!-- ═══ EDIT MODAL ═══ -->
+<div class="mo" id="mo-edit">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title" id="edit-title">編輯記錄</div>
+      <button class="modal-close" onclick="closeMo('edit')">✕</button>
+    </div>
+    <div class="modal-body" id="edit-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeMo('edit')">取消</button>
+      <button class="btn btn-primary" id="edit-save-btn" onclick="saveEdit()">儲存變更</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ADD MODAL ═══ -->
+<div class="mo" id="mo-add">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title" id="add-title">新增記錄</div>
+      <button class="modal-close" onclick="closeMo('add')">✕</button>
+    </div>
+    <div class="modal-body" id="add-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeMo('add')">取消</button>
+      <button class="btn btn-primary" onclick="saveAdd()">新增</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// EMBEDDED SEED DATA（從 Excel 解析）
+// ══════════════════════════════════════════
+const SEED = {"complaints":[{"id":"c001","type":"general","date":"2026-01-02","category":"出貨","reason":"漏單未出","description":"未出 蝦皮轉不成立","platform":"蝦皮","order_id":"251227DWV1JM5P","customer":"kiss865959","product":"-","note":"-","loss":0,"ship_date":"-","tracking":"-","delivery":"-","staff":"","improvement":"","resolved":false},{"id":"c002","type":"general","date":"2026-01-02","category":"出貨","reason":"少寄/寄錯","description":"少寄一個","platform":"蝦皮","order_id":"2512258K8VDY1A","customer":"wongcw2933","product":"【BeBelock】鉑金TOK副食品連裝盒 1個（石青灰 / 50ml）","note":"","loss":415.0,"ship_date":"2026-01-02","tracking":"6677912813","delivery":"順利送達","staff":"宸禎","improvement":"首次實際包裝，尚未熟悉現場操作節奏\n雖已了解流程原則\n但因第一次實際執行包裝，對包裝節奏與細節尚未完全適應，\n導致在實作時發生疏漏\n除了化螢光筆之外，還要唱名","resolved":true},{"id":"c003","type":"general","date":"2026-01-05","category":"出貨","reason":"少寄/寄錯","description":"已備註贈品\n但仍未出","platform":"官網","order_id":"20251226033712988","customer":"鄭皓文","product":"森林裸麵 1包（口味寬細隨機）/森林寶寶通心麵 1盒","note":"","loss":353.5,"ship_date":"2026-01-05","tracking":"6679973930","delivery":"順利送達","staff":"金魚","improvement":"原因：沒有畫到，當下可能有插播所以是沒注意\n解決：備註方面會排第一個用螢光筆畫起並優先備貨","resolved":true},{"id":"c005","type":"general","date":"2026-01-05","category":"出貨","reason":"少寄/寄錯","description":"滿額贈品寄錯\n拌麵寄成裸麵","platform":"1 shop","order_id":"FN5122537592","customer":"Ca chan","product":"森林拌麵 1包（口味隨機）","note":"於下次訂購時隨單補寄一包拌麵\n（會在訂單內備註）","loss":55.0,"ship_date":"-","tracking":"-","delivery":"-","staff":"金魚","improvement":"原因：贈送活動的拌麵跟裸麵交換，\n可能因上一筆跟下一筆交換時習慣性備貨，沒多注意\n\n解決：文字上需多加注意","resolved":false},{"id":"c006","type":"general","date":"2026-01-05","category":"出貨","reason":"少寄/寄錯","description":"少兩包甜菜根","platform":"官網","order_id":"20251203094309167","customer":"鍾珮甄","product":"愛心拌麵-小資款 2包（甜菜根｜山茶紅）","note":"","loss":246.0,"ship_date":"2026-01-05","tracking":"6680845323","delivery":"順利送達","staff":"禎姊","improvement":"之後都一個口味一個口味點數量","resolved":true},{"id":"c007","type":"general","date":"2026-01-06","category":"出貨","reason":"少寄/寄錯","description":"訂三包 只寄一包","platform":"蝦皮","order_id":"2512258G46XNV1","customer":"alan0307","product":"星球米餅 2包（紫米）","note":"","loss":366.0,"ship_date":"2026-01-06","tracking":"6806825594","delivery":"順利送達","staff":"宸禎","improvement":"首次實際包裝，尚未熟悉現場操作節奏\n雖已了解流程原則\n但因第一次實際執行包裝，對包裝節奏與細節尚未完全適應，\n導致在實作時發生疏漏\n除了化螢光筆之外，還要唱名","resolved":true},{"id":"c008","type":"general","date":"2026-01-08","category":"出貨","reason":"少寄/寄錯","description":"少寄數量及口味\n共訂8盒 出貨6盒（無贈到贈品）","platform":"蝦皮","order_id":"251230PH8RPSWW","customer":"kiss865959","product":"寶寶麵 4盒（南瓜1／蔬菜１／芝麻２）\n聖誕迷你龍小禮包 1包（贈完改 綜合星星麵嚐鮮包）\n綜合星星麵嚐鮮包 1包","note":"","loss":734.0,"ship_date":"2026-01-08","tracking":"6809799054","delivery":"順利送達","staff":"宸禎","improvement":"首次實際包裝，尚未熟悉現場操作節奏\n雖已了解流程原則\n但因第一次實際執行包裝，對包裝節奏與細節尚未完全適應，\n導致在實作時發生疏漏\n除了化螢光筆之外，還要唱名","resolved":true},{"id":"c009","type":"general","date":"2026-01-12","category":"出貨","reason":"商品不完整","description":"婚禮裡帶上未有提繩","platform":"官網","order_id":"20251226221439075","customer":"郭純如","product":"婚禮提袋 1個","note":"指定1/13-14到貨","loss":116.0,"ship_date":"2026-01-12","tracking":"6813850256","delivery":"順利送達","staff":"禎姊","improvement":"原因：廠商近來都是一綑一綑，清點完數量之後，會直接裝箱，不會全檢\n解決辦法：\n1.20以上的，按比列多放給客人\n2.20以下的全檢","resolved":true},{"id":"c010","type":"general","date":"2026-01-12","category":"包裝","reason":"商品不完整","description":"通心盒內裝捲捲","platform":"官網","order_id":"20251111141026190","customer":"Sarah","product":"通心麵 1盒","note":"","loss":306.0,"ship_date":"2026-01-12","tracking":"6813853513","delivery":"順利送達","staff":"雅萱","improvement":"1.之後補庫存都正面上架，順便看內容物是否一至\n2.請求支援，須在外箱貼[包裝人員檢查項目]，進行全檢\n1.確認日期\n2.確認內容物與盒裝一至","resolved":true},{"id":"c011","type":"general","date":"2026-01-12","category":"出貨","reason":"少寄/寄錯","description":"訂購綜合5包入\n只收到1包","platform":"官網","order_id":"20260102113020149","customer":"林家慧","product":"森林裸麵-粗麵 4包（紫薯、蕃薯、蔬菜、南瓜各1）","note":"","loss":224.0,"ship_date":"2026-01-12","tracking":"M48574426806","delivery":"成功取件","staff":"金魚","improvement":"","resolved":false},{"id":"c012","type":"general","date":"2026-01-12","category":"其他","reason":"盒損/凹損","description":"斷裂嚴重","platform":"蝦皮","order_id":"251216G1VM6UY2","customer":"julie5900","product":"森林裸麵-細麵 6包（蔬菜）","note":"","loss":355.0,"ship_date":"2026-01-12","tracking":"6813859194","delivery":"順利送達","staff":"-","improvement":"天冷麵受寒，那一批幾乎斷裂嚴重，剩一點點可以出貨，\n那時候跟佩芳姐確認可以出，\n佩芳姐持續在改善讓面不要那麼容易斷，但是要持續觀察","resolved":true},{"id":"c013","type":"general","date":"2026-01-14","category":"包裝, 出貨","reason":"效期錯誤","description":"重複壓效期\n其中一個效期為2026/1 未畫掉或清除","platform":"官網","order_id":"20260104065251761","customer":"蔡明慧","product":"-","note":"-","loss":0,"ship_date":"-","tracking":"-","delivery":"-","staff":"-","improvement":"因為盒子成本較高，佩芳姐之前有說蓋壞的可以出給一般客人不出給經銷\n但與總監確認過後，之後如果有蓋錯的統一擦掉重蓋","resolved":false},{"id":"c015","type":"general","date":"2026-01-14","category":"出貨","reason":"盒損/凹損","description":"外盒破損","platform":"蝦皮","order_id":"260107DP8SMDK5","customer":"xxoxoxx","product":"土地公發財麵｜單盒 1盒","note":"-","loss":215.0,"ship_date":"2026-01-16","tracking":"74289565558","delivery":"配送完成","staff":"雅萱","improvement":"原因：因為最近直面品質比較不穩定，麵體比較澎澎，\n四包一起放入，就容易太膨脹，導致紙盒破裂\n\n解決辦法：\n1.下次裝盒時，務必擇包放入\n2.裝麵時，如果有遇到麵體不穩定，例如：容易斷裂，比較澎，務必提出","resolved":true},{"id":"c016","type":"general","date":"2026-01-15","category":"包裝","reason":"異物/鳥屎","description":"贈品迷你龍發現頭髮","platform":"1 shop","order_id":"FN5121512089","customer":"許琪維","product":"嚐鮮包-捲捲 3包 / 嚐鮮包-星星 6包","note":"安排來回件\n需收退有異物的贈品","loss":1010.0,"ship_date":"2026-01-16","tracking":"74289565819 已安排來回件","delivery":"配送完成","staff":"雅萱","improvement":"","resolved":true},{"id":"c017","type":"general","date":"2026-01-16","category":"出貨","reason":"少寄/寄錯","description":"收到的商品與訂購商品不符\n顧客都訂購週年款，全部出成一般款","platform":"官網","order_id":"20260107074255795","customer":"陳昱臻","product":"森林星星麵－週年款 × 2 盒/蕃薯 × 蔬菜－小樹麵 × 2 盒","note":"-","loss":793.0,"ship_date":"2026-01-16","tracking":"74289566143","delivery":"配送完成","staff":"金魚","improvement":"原因:因為從 / 開始看商品內容，沒有注意到前面文字10周年\n\n解決：是我習慣從/後備貨，沒整段文字看完，\n但看是否可以/後的選項裡增加10週年或插畫款","resolved":true},{"id":"c018","type":"general","date":"2026-01-19","category":"行銷","reason":"少寄/寄錯","description":"官網資訊與贈品不符","platform":"官網","order_id":"20260110044611285","customer":"劉家伶","product":"品牌牛皮紙提袋-小 15個","note":"指定1/20到","loss":0,"ship_date":"2026-01-19","tracking":"6823009060已指定1/20到貨","delivery":"順利送達","staff":"行銷","improvement":"-","resolved":true},{"id":"c020","type":"general","date":"2026-01-19","category":"出貨, 包裝","reason":"盒損/凹損","description":"外盒髒污＋內袋貼紙貼歪＋外盒破損","platform":"官網","order_id":"20251118024357501\n20251224091107756","customer":"Tsang Fan","product":"花朵綻放 30份（紫薯12/甜菜根12/蔬菜6)\n貼紙請貼 Fanny&Sam（客製化）","note":"務必1/21寄出\n多多確認商品狀態再入箱","loss":1965.0,"ship_date":"2026-01-21","tracking":"SF5129146331134","delivery":"已簽收","staff":"金魚","improvement":"\"1.日期前一天會先蓋好，避免沒有乾導致污漬\n2.分層，每層都放氣泡布\n3.婚禮以後成雙和花朵綻放統一四邊都要放氣泡布\n4.貼紙之後要裝之前先全檢，貼歪的一律打掉\n5.之後封箱前一律拍照留存","resolved":true},{"id":"c022","type":"general","date":"2026-01-19","category":"出貨, 包裝","reason":"盒損/凹損, 商品不完整","description":"打動歪掉無法別＋圓標錯誤","platform":"官網","order_id":"20250723025955689","customer":"Wong Hiu Yan","product":"愛心麵｜小資款 30包（口味平均）\n圓標給 Yammi ❤️ Clement\n！！需協助綁上！！","note":"務必1/26寄出","loss":1965.0,"ship_date":"2026-01-26","tracking":"SF5129924469669","delivery":"已簽收","staff":"禎姊","improvement":"1.印刷品過往都是同一個客人一疊，\n以往因為習慣只會看第一層，\n之後一律都要全檢\n\n2.如果有歪掉的，之後統一打掉","resolved":true},{"id":"c024","type":"general","date":"2026-01-19","category":"出貨, 生產","reason":"盒損/凹損, 少寄/寄錯","description":"麵斷裂嚴重＋少贈品春聯","platform":"官網","order_id":"20260112091618328","customer":"黃庭暄","product":"特殊星星麵 1盒（車車）/ 春聯 1張","note":"務必上防撞耗材！\n顧客表示箱內無","loss":460.0,"ship_date":"2026-01-19","tracking":"M74338002883","delivery":"已完成\n包裹成功取件","staff":"金魚/雅萱","improvement":"","resolved":false},{"id":"c026","type":"general","date":"2026-01-19","category":"生產","reason":"異物/鳥屎","description":"吃到異物\n疑似塑膠","platform":"蝦皮","order_id":"251216FXQ8S5DU","customer":"wx0702","product":"寶寶麵嚐鮮包 6包（隨機但不重複）/ 捲捲麵嚐鮮包 2包\n\n＋附上手寫 表歉意小卡\n\n！！請確認無任何異物再入箱！！","note":"紫薯發現異物，退貨包裹資訊\n范瀞文/0932812383\n高雄市鼓山區美術東六街149號6樓\n-\n1/22 已安排物流下午收退，請留意明後天包裹\n-\n1/26 已收到退貨，已確認是塑膠\n-\n1/27已安全落幕","loss":0,"ship_date":"2026-01-27","tracking":"6738338751","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c027","type":"general","date":"2026-01-20","category":"出貨, 包裝","reason":"盒損/凹損","description":"外盒污漬＋外盒凹損\n內袋貼紙貼歪＋木棍穿過","platform":"官網","order_id":"20251023115819735","customer":"李國頌","product":"花朵綻放款 100 份（口味平均）\n！！！請貼客製化貼紙Mr. Lee ❤️ Mrs. Lee ！！！\n\n森林拌麵 20包（紫薯(/南瓜/蕃薯/紅蘿蔔 均分）","note":"務必1/22寄出","loss":5815.0,"ship_date":"2026-01-22","tracking":"SF5103864582220\nSF5129528588154","delivery":"已簽收","staff":"金魚","improvement":"\"1.日期前一天會先蓋好，避免沒有乾導致污漬\n2.分層，每層都放氣泡布\n3.婚禮以後成雙和花朵綻放統一四邊都要放氣泡布\n4.貼紙之後要裝之前先全檢，貼歪的一律打掉\n5.之後封箱前一律拍照留存","resolved":true},{"id":"c029","type":"general","date":"2026-01-21","category":"出貨","reason":"少寄/寄錯","description":"出貨錯口味","platform":"蝦皮","order_id":"26011793223SW7","customer":"pigo5409","product":"寶寶麵 1盒（竹山番薯）","note":"-","loss":315.0,"ship_date":"2026-01-22","tracking":"6829738241","delivery":"順利送達","staff":"金魚","improvement":"","resolved":true},{"id":"c031","type":"general","date":"2026-01-22","category":"出貨, 其他","reason":"已延後但仍出","description":"顧客已聯繫安排延後\n已確實回報 但仍出貨\n後續未接到任何來電 已遭退回","platform":"官網","order_id":"20260106025005037","customer":"鐘幼晴","product":"依照原訂單商品內容出貨","note":"-","loss":738.0,"ship_date":"2026-01-22","tracking":"M86128764214","delivery":"已完成\n包裹成功取件","staff":"昱秀","improvement":"印單會注意看客人有無備注\n若客人有加官方line會往上滑，看有沒有指定出貨時間","resolved":false},{"id":"c032","type":"general","date":"2026-01-26","category":"出貨, 包裝","reason":"盒損/凹損","description":"外包裝髒污","platform":"官網","order_id":"20251222055620342","customer":"Tim Lee","product":"花朵綻放 50份（口味平均分配）\n請貼客製化貼紙-Timothy ❤️ Josephine","note":"","loss":0,"ship_date":"2026-01-28","tracking":"SF3264070730765","delivery":"已簽收","staff":"金魚","improvement":"原有的日期貼沒有，未提前說，臨時採購日期貼\n但油墨不相容，導致日期油漬產生污漬\n1.日期貼之後提前一天蓋起來\n2.分層，每層都放氣泡布\n3.因庫存問題而引起的客訴，故之後常備庫存改為每周盤點","resolved":true},{"id":"c033","type":"general","date":"2026-01-28","category":"出貨","reason":"少寄/寄錯","description":"出貨錯誤顏色","platform":"蝦皮","order_id":"260122PJWHQQG5","customer":"yoyobabykwan","product":"【BeBelock】鉑金TOK副食品連裝盒 2個（石青灰,15ml）","note":"安排來回件\n需收退錯誤商品","loss":0,"ship_date":"2026-01-28","tracking":"6739931973已安排來回件","delivery":"順利送達","staff":"昱秀","improvement":"原因：分裝盒外包盒是摩紗材質加上晚上包貨光線不佳\n客人訂購的灰色和綠色顏色有點相近。\n解決方法：逤是在晚上出貨，要出顏色相近的品項會拿兩個起來對比\n對比不出來直接翻到後面看顏色標記。","resolved":true},{"id":"c034","type":"general","date":"2026-02-02","category":"出貨","reason":"少寄/寄錯","description":"少寄商品","platform":"官網","order_id":"20260106081420949","customer":"詹淯真","product":"森林寶寶麵 - 插畫款 2盒","note":"","loss":0,"ship_date":"2026-02-02","tracking":"SF5100231979242","delivery":"已簽收","staff":"昱秀","improvement":"","resolved":true},{"id":"c036","type":"general","date":"2026-02-02","category":"出貨","reason":"少寄/寄錯","description":"少兩包米餅","platform":"官網","order_id":"20260121043016116","customer":"許珮絲","product":"星球米餅 2包（口味隨機）","note":"","loss":0,"ship_date":"2026-02-02","tracking":"16330472552","delivery":"貨件跨區轉運中","staff":"昱秀","improvement":"","resolved":false},{"id":"c037","type":"general","date":"2026-02-03","category":"包裝, 出貨","reason":"盒損/凹損","description":"外盒破損","platform":"官網","order_id":"20260116124154088","customer":"陳智均","product":"金雞元寶禮盒 2盒","note":"","loss":0,"ship_date":"2026-02-03","tracking":"6686739603","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c038","type":"general","date":"2026-02-03","category":"出貨, 包裝","reason":"盒損/凹損","description":"外盒已開盒＋內袋破損","platform":"官網","order_id":"20260128041145017","customer":"卓虹琪","product":"惜福良品 ( 效期 3/02~4/06 區間 )｜森林寶寶麵 1盒","note":"","loss":0,"ship_date":"2026-02-03","tracking":"6686732791","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c040","type":"general","date":"2026-02-05","category":"其他","reason":"少寄/寄錯","description":"收到錯誤口味","platform":"蝦皮","order_id":"26012745KEA2U9","customer":"clara00000","product":"寶寶麵 3盒（蔬菜）","note":"安排來回件\n需收退錯誤商品","loss":0,"ship_date":"2026-02-05","tracking":"6692329910","delivery":"-","staff":"-","improvement":"-","resolved":false},{"id":"c041","type":"general","date":"2026-02-09","category":"其他, 出貨","reason":"盒損/凹損, 商品不完整","description":"外盒破損＋少收到提袋跟卡片","platform":"官網","order_id":"20260127070234644","customer":"sally","product":"竹意禮盒的 外盒＋品牌提袋＋卡片","note":"僅需要寄出外盒＋提袋及卡片\n備註最晚2/13 12:00前到貨\n若可以的話請2/12配達","loss":0,"ship_date":"2026-02-09","tracking":"74302082030","delivery":"配送完成","staff":"","improvement":"","resolved":true},{"id":"c042","type":"general","date":"2026-02-09","category":"其他, 出貨","reason":"盒損/凹損, 商品不完整","description":"外盒破損＋少收到提袋跟卡片","platform":"官網","order_id":"20260116150747230","customer":"詹先生","product":"竹意禮盒 1盒（附品牌提袋、卡片）\n！！務必附上提袋及小卡！！","note":"！！務必附上提袋及小卡！！","loss":0,"ship_date":"2026-02-09","tracking":"74303019663","delivery":"配送完成","staff":"","improvement":"","resolved":true},{"id":"c043","type":"general","date":"2026-02-10","category":"出貨","reason":"少寄/寄錯","description":"少收到春聯","platform":"官網","order_id":"20260203095120848","customer":"李欣盈","product":"春聯 1張（隨機）","note":"","loss":0,"ship_date":"2026-02-10","tracking":"74303547728","delivery":"配送完成","staff":"","improvement":"","resolved":true},{"id":"c044","type":"general","date":"2026-02-10","category":"其他","reason":"盒損/凹損","description":"外盒盒損","platform":"其他","order_id":"企業訂購-誠品","customer":"林 佳芳","product":"招財禮｜1人份 外盒 10個\n（效期壓印至2026/12/21 ）","note":"僅需要寄出外盒","loss":0,"ship_date":"2026-02-10","tracking":"74303548902","delivery":"配送中","staff":"","improvement":"","resolved":false},{"id":"c045","type":"general","date":"2026-02-11","category":"出貨","reason":"少寄/寄錯","description":"二次漏寄小卡","platform":"官網","order_id":"20260127070234644","customer":"sally","product":"暖陽小卡 2張","note":"使用 郵局掛號信 寄出\n（為避免凹折到，請包裝幾圈氣泡紙後寄）","loss":0,"ship_date":"2026-02-11","tracking":"93498354002220239003","delivery":"等候收件人來局領取","staff":"","improvement":"","resolved":false},{"id":"c047","type":"general","date":"2026-02-11","category":"出貨","reason":"少寄/寄錯","description":"口味錯誤","platform":"1 shop","order_id":"FN6020791538","customer":"林頌楷","product":"森林拌麵 3包（椒麻）","note":"","loss":0,"ship_date":"2026-02-11","tracking":"74303889321","delivery":"配送完成","staff":"","improvement":"","resolved":true},{"id":"c048","type":"general","date":"2026-02-12","category":"客服","reason":"少寄/寄錯","description":"米餅口味錯誤","platform":"官網","order_id":"20260130225551859","customer":"金孝妍","product":"寶寶米餅 3包（南瓜3)","note":"","loss":0,"ship_date":"2026-02-12","tracking":"N69273598907","delivery":"已完成包裹成功取件","staff":"","improvement":"","resolved":false},{"id":"c049","type":"general","date":"2026-02-23","category":"出貨","reason":"少寄/寄錯","description":"六送二的贈2口味未依照備註出貨","platform":"蝦皮","order_id":"260211F6UJTU3C","customer":"royal_0106","product":"寶寶麵 2盒（芝麻/蔬菜）","note":"","loss":0,"ship_date":"2026-02-23","tracking":"6723033575","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c051","type":"general","date":"2026-02-24","category":"出貨","reason":"少寄/寄錯","description":"少出貨一盒","platform":"官網","order_id":"20260209073341389","customer":"許詠然","product":"森林星星麵｜插畫款-小樹麵 1盒","note":"","loss":0,"ship_date":"2026-02-24","tracking":"SF5128010519506","delivery":"已簽收","staff":"","improvement":"","resolved":true},{"id":"c052","type":"general","date":"2026-02-24","category":"包裝","reason":"少寄/寄錯","description":"年前禮盒補寄後仍缺小卡\n顧客撕損外盒安排補（有支付運費）","platform":"官網","order_id":"20260116150747230","customer":"詹先生","product":"竹意禮盒的 外盒 1個\n暖陽卡片 1張","note":"","loss":0,"ship_date":"2026-02-24","tracking":"6725419901","delivery":"配送中","staff":"","improvement":"","resolved":false},{"id":"c053","type":"general","date":"2026-02-26","category":"生產","reason":"其他","description":"婚禮訂單\n麵條上有一根非正常形狀的麵條\n擔心收禮親友感受不好","platform":"官網","order_id":"20260103062518638","customer":"白大白","product":"Love兔U(兔拌麵) 1包（甜菜根）","note":"","loss":0,"ship_date":"2026-02-26","tracking":"6727847582","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c054","type":"general","date":"2026-03-02","category":"包裝","reason":"少寄/寄錯","description":"訂購 寶寶麵-竹山番薯 口味\n寄成 黃金南瓜 口味","platform":"1 shop","order_id":"FN6022564310","customer":"chiu hin kan","product":"寶寶麵 1盒（竹山番薯）","note":"","loss":0,"ship_date":"2026-03-02","tracking":"SF5128006421716","delivery":"已簽收","staff":"","improvement":"","resolved":true},{"id":"c056","type":"general","date":"2026-03-02","category":"包裝","reason":"異物/鳥屎","description":"元寶麵內發現不知名羽毛","platform":"官網","order_id":"20250604073123871","customer":"chupig85","product":"已安排退款（已上群回報）","note":"","loss":0,"ship_date":"-","tracking":"-","delivery":"-","staff":"","improvement":"","resolved":false},{"id":"c057","type":"general","date":"2026-03-05","category":"出貨","reason":"少寄/寄錯","description":"婚禮訂單\n少寄出兩份給顧客","platform":"官網","order_id":"20260209073919435","customer":"劉子齊","product":"客製新款西式成雙成對 2份\n（客製袖套：Kevin❤️Lilly）","note":"","loss":0,"ship_date":"2026-03-05","tracking":"3263068093","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c059","type":"general","date":"2026-03-05","category":"出貨","reason":"少寄/寄錯","description":"少寄出一箱提袋","platform":"官網","order_id":"20260213024747231","customer":"吳思嫺","product":"磨砂紅繩款禮袋 200個","note":"指定3/6到貨","loss":0,"ship_date":"2026-03-05","tracking":"3263840366","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c060","type":"general","date":"2026-03-06","category":"出貨","reason":"少寄/寄錯","description":"少寄到『惜福品-寶寶麵1盒』","platform":"1 shop","order_id":"FN6022573174","customer":"何惠珊","product":"惜福品-寶寶麵 1 盒（口味隨機）\n（如惜福品沒庫存，則寄送正常的寶寶麵）","note":"","loss":0,"ship_date":"2026-03-05","tracking":"SF5107954471307","delivery":"已簽收","staff":"","improvement":"","resolved":true},{"id":"c062","type":"general","date":"2026-03-06","category":"出貨","reason":"少寄/寄錯","description":"顧客訂購盒裝，寄出嚐鮮包","platform":"蝦皮","order_id":"2603035RV8U4HJ","customer":"best750527","product":"寶寶麵 4盒（芝麻、胡蘿蔔、蔬菜、紫薯）","note":"","loss":0,"ship_date":"2026-03-06","tracking":"3264522203","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c064","type":"general","date":"2026-03-09","category":"出貨","reason":"少寄/寄錯","description":"選擇恐龍+動物\n但收到動物＋車車","platform":"官網","order_id":"20260217012156094","customer":"嵐Lan","product":"特殊星星麵 1盒（恐龍）","note":"","loss":0,"ship_date":"2026-03-09","tracking":"3266555084","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c065","type":"general","date":"2026-03-09","category":"出貨","reason":"少寄/寄錯","description":"（婚禮訂單）\n少寄出贈品6包拌麵","platform":"官網","order_id":"20260114051127895","customer":"余芯儀","product":"森林拌麵 6包（口味平均）","note":"","loss":0,"ship_date":"2026-03-09","tracking":"3266556204","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c066","type":"general","date":"2026-03-10","category":"包裝","reason":"效期錯誤","description":"無壓印效期","platform":"官網","order_id":"20260224043117821","customer":"鄧卉婷","product":"（已上群回報）","note":"","loss":0,"ship_date":"-","tracking":"-","delivery":"-","staff":"","improvement":"","resolved":false},{"id":"c067","type":"general","date":"2026-03-11","category":"包裝","reason":"異物/鳥屎","description":"內袋發現頭髮","platform":"蝦皮","order_id":"260225K03DW1X8","customer":"ssnowk2004","product":"寶寶義大利麵 1盒（蝴蝶）＋寶麵嚐鮮包 2包（隨機口味）","note":"","loss":0,"ship_date":"2026-03-11","tracking":"3269766791","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c068","type":"general","date":"2026-03-16","category":"出貨","reason":"少寄/寄錯","description":"訂個盒裝裸麵出成單包","platform":"官網","order_id":"20260228114316214","customer":"林俐伶","product":"森林裸麵｜盒裝4包入 5盒（蕃薯/蘿蔔/紫薯/蔬菜/南瓜）","note":"","loss":0,"ship_date":"2026-03-16","tracking":"3275148726","delivery":"順利送達","staff":"嘉欣","improvement":"","resolved":true},{"id":"c070","type":"general","date":"2026-03-16","category":"生產, 包裝","reason":"異物/鳥屎","description":"麵食內發現蟲（非米蟲）","platform":"官網","order_id":"20260217090608260","customer":"賴巧軒","product":"安排退款（已上群回報）","note":"","loss":0,"ship_date":"-","tracking":"-","delivery":"-","staff":"","improvement":"","resolved":false},{"id":"c071","type":"general","date":"2026-03-17","category":"出貨","reason":"少寄/寄錯","description":"買螺旋＋通心\n收到蝴蝶＋通心","platform":"官網","order_id":"20260304182723063","customer":"張小姐","product":"寶寶義大利麵 1盒（螺旋）","note":"","loss":0,"ship_date":"2026-03-18","tracking":"3277521380","delivery":"順利送達","staff":"嘉欣","improvement":"先前出貨歷經四人，有點難分辨責任歸屬，截至本周開始會開始填負責人員","resolved":true},{"id":"c072","type":"general","date":"2026-03-18","category":"其他, 出貨","reason":"盒損/凹損, 少寄/寄錯","description":"收到時醬包破掉漏出\n寶寶麵外盒被摔爆","platform":"1 shop","order_id":"FN6022797967","customer":"黃莉斯","product":"寶寶意麵醬 3包（紅醬1/白醬2)\n寶寶麵 1盒（紫薯）","note":"","loss":0,"ship_date":"2026-03-19","tracking":"SF5108875925548","delivery":"已簽收","staff":"-","improvement":"","resolved":true},{"id":"c073","type":"general","date":"2026-03-19","category":"包裝, 出貨","reason":"盒損/凹損","description":"封口未完全","platform":"蝦皮","order_id":"260315757CVQ9Q","customer":"zz80513","product":"森林裸麵 1包（蔬菜細麵）","note":"","loss":161.0,"ship_date":"2026-03-19","tracking":"3279167640","delivery":"順利送達","staff":"雅萱","improvement":"問題說明：發生兩筆客訴，客人反映產品封口未完全。\n原因分析：\n封口機溫度設定不足或不穩定\n封口溫度未達到適當範圍，導致封口未完全貼合，影響密封效果。\n設備啟動初期未確認封口品質\n作業開始時，未針對前段封口狀況進行確認，導致異常未被即時發現而持續產出。\n解決辦法：\n1.每次開機或更換包材後，前 10 包需進行全檢\n2.檢查項目包含：\n是否完全密合/是否可被輕易拉開\n3.確認無異常後，方可進入正常作業","resolved":true},{"id":"c074","type":"general","date":"2026-03-20","category":"出貨","reason":"少寄/寄錯","description":"收到的口味和訂單備註的不一樣","platform":"1 shop","order_id":"FN6030924326","customer":"周芷蕙","product":"森林拌麵【紫心蕃薯(細麵)x道地沙茶】4 包\n森林拌麵【新鮮紅蘿蔔(細麵)x古味麻油】 4 包","note":"","loss":0,"ship_date":"2026-03-20","tracking":"SF5123516283143","delivery":"已簽收","staff":"-","improvement":"","resolved":true},{"id":"c076","type":"general","date":"2026-03-23","category":"出貨","reason":"少寄/寄錯","description":"訂星星麵給寶寶麵","platform":"蝦皮","order_id":"260318DK7UBAWW","customer":"cyc0526","product":"星星麵 1盒（週年款）","note":"","loss":275.0,"ship_date":"2026-03-24","tracking":"3284141836","delivery":"順利送達","staff":"佩甄","improvement":"原因分析：新人對品項尚未熟悉，容易產生混淆\n改善對策：導入「入箱唸讀確認」機制（新人強制執行）\n撿貨完成放入箱內時，需唸出：「品名」","resolved":true},{"id":"c077","type":"general","date":"2026-03-24","category":"包裝","reason":"盒損/凹損","description":"封口未完全","platform":"蝦皮","order_id":"2603143HBVXW60","customer":"aamy02292003","product":"森林裸麵 1包（新鮮蔬菜 / 細麵0.3cm）","note":"","loss":161.0,"ship_date":"2026-03-25","tracking":"3285969035","delivery":"順利送達","staff":"雅萱","improvement":"問題說明：發生兩筆客訴，客人反映產品封口未完全。\n原因分析：\n封口機溫度設定不足或不穩定\n封口溫度未達到適當範圍，導致封口未完全貼合，影響密封效果。\n設備啟動初期未確認封口品質\n作業開始時，未針對前段封口狀況進行確認，導致異常未被即時發現而持續產出。\n解決辦法：\n1.每次開機或更換包材後，前 10 包需進行全檢\n2.檢查項目包含：\n是否完全密合/是否可被輕易拉開\n3.確認無異常後，方可進入正常作業","resolved":true},{"id":"c078","type":"general","date":"2026-03-25","category":"包裝, 出貨","reason":"少寄/寄錯","description":"客製化貼紙錯誤","platform":"官網","order_id":"20260114133926484","customer":"Ethan Chiu","product":"反饋時婚禮已結束，已安排部分刷退給顧客\n（已上群回報）","note":"","loss":0,"ship_date":"-","tracking":"","delivery":"","staff":"許宸禎","improvement":"3月初因原出貨離職，婚禮多人經手，未落實檢查作業\n解決辦法：\n1.包裝完的人要檢查蓋章\n2.品管檢查完蓋章\n3.封箱的人要檢查內容物","resolved":false},{"id":"c079","type":"general","date":"2026-03-30","category":"出貨","reason":"少寄/寄錯","description":"訂購義大利麵，收到寶麵","platform":"1 shop","order_id":"FN6031390995","customer":"許乃文","product":"寶寶義大利麵 3盒(款式各一）","note":"！！安排來回件！！\n（錯誤商品需要收退）","loss":0,"ship_date":"2026-03-30","tracking":"3291051481(已安排來回件)","delivery":"順利送達","staff":"佩甄","improvement":"","resolved":true},{"id":"c080","type":"general","date":"2026-03-30","category":"出貨","reason":"少寄/寄錯","description":"訂購麵＋醬組合，少蝴蝶麵2盒","platform":"官網","order_id":"20260317132603223","customer":"linky","product":"寶寶義大利麵 2盒(蝴蝶麵2）","note":"","loss":0,"ship_date":"2026-03-30","tracking":"SF0229961038347","delivery":"已簽收","staff":"佩甄","improvement":"","resolved":true},{"id":"c081","type":"general","date":"2026-03-30","category":"出貨","reason":"少寄/寄錯","description":"(婚禮訂單）\n訂購幸福花絮，沒收到紙提把","platform":"官網","order_id":"20260207045757307","customer":"吳語紜","product":"幸福花絮的紙提把  6個","note":"","loss":0,"ship_date":"2026-03-30","tracking":"3291983181","delivery":"順利送達","staff":"昱秀","improvement":"領到幸福花絮的單，會在備註加上提把需要的數量。","resolved":true},{"id":"c082","type":"general","date":"2026-03-31","category":"出貨","reason":"少寄/寄錯","description":"訂購星麵嚐鮮包6包，只收到一包","platform":"1 shop","order_id":"FN6031849605","customer":"陳怡伶","product":"星麵嚐鮮包 5包（蕃薯/芝麻/南瓜/蔬菜/紅蘿蔔）","note":"","loss":0,"ship_date":"2026-03-31","tracking":"3292877512","delivery":"順利送達","staff":"佩甄","improvement":"","resolved":true},{"id":"c083","type":"general","date":"2026-04-01","category":"出貨, 包裝, 客服","reason":"少寄/寄錯, 商品不完整","description":"一包背面少養標貼\n少收到一盒恐龍麵","platform":"官網","order_id":"20260103031923465","customer":"方安棋","product":"特殊星星麵 1盒（恐龍）\nlove兔u 1包\n（客製化封套：Yi Da ❤️ An Chi）","note":"","loss":0,"ship_date":"2026-04-07","tracking":"3297896394","delivery":"順利送達","staff":"昱秀\n語彤","improvement":"昱秀：未確實檢查出貨單訂單品項。改進：用奇異筆圈出品項及數量\n客服：恐龍麵出貨備註未標示清楚為2盒","resolved":true},{"id":"c084","type":"general","date":"2026-04-01","category":"出貨","reason":"少寄/寄錯","description":"訂購寶寶麵 收到義大利麵","platform":"1 shop","order_id":"FN6031848344","customer":"林芯薆","product":"寶寶麵 6盒（口味平均）","note":"！！安排來回件！！\n（錯誤商品需要收退）","loss":0,"ship_date":"2026-04-01","tracking":"3294456815(已安排來回件)","delivery":"順利送達","staff":"佩甄","improvement":"","resolved":true},{"id":"c085","type":"general","date":"2026-04-02","category":"客服","reason":"少寄/寄錯","description":"顧客訂購後修改款式\n但訂單內備註未修改到","platform":"官網","order_id":"20260310081921449","customer":"邱千慧","product":"公版幸福花絮 20份（蝴蝶）","note":"！！安排來回件！！\n（錯誤商品需要收退）","loss":0,"ship_date":"2026-04-07","tracking":"3297943876(已安排來回件、已指定4/8到貨)","delivery":"已集貨","staff":"語彤","improvement":"顧客聯繫修改品項後，僅修改到出貨表，但訂單內備註未修改到","resolved":true},{"id":"c086","type":"general","date":"2026-04-02","category":"出貨","reason":"少寄/寄錯, 盒損/凹損","description":"訂購特殊星星麵，拿到一般星\n其中一盒收到時已開盒","platform":"官網","order_id":"20260322121413897","customer":"Wendy🐷","product":"惜福良品 ( 效期 6/01 ~ 6/08 區間 )\n特別款森林星星麵 4盒","note":"","loss":0,"ship_date":"2026-04-02","tracking":"3296392540","delivery":"順利送達","staff":"佩甄","improvement":"","resolved":true},{"id":"c087","type":"general","date":"2026-04-07","category":"出貨","reason":"少寄/寄錯","description":"點數兌換『森林品牌購物袋-FNG寶特瓶循環袋｜1入』\n但寄成週年款提袋","platform":"官網","order_id":"20260320115347431","customer":"方郁雯","product":"森林品牌購物袋-FNG寶特瓶循環袋｜1入","note":"","loss":0,"ship_date":"2026-04-07","tracking":"3299158402","delivery":"順利送達","staff":"佩甄","improvement":"","resolved":true},{"id":"c088","type":"general","date":"2026-04-07","category":"包裝","reason":"異物/鳥屎","description":"包裝內發現頭髮","platform":"官網","order_id":"20260321100053379","customer":"吳逸瑄","product":"下次訂購時補贈（已上群回報）","note":"","loss":0,"ship_date":"-","tracking":"-","delivery":"-","staff":"雅萱","improvement":"","resolved":false},{"id":"c089","type":"general","date":"2026-04-08","category":"包裝","reason":"商品不完整","description":"（婚禮訂單）\n愛心麵包裝上無打孔","platform":"官網","order_id":"20260310092638470","customer":"范聖敏","product":"小資款-愛心麵 10包（南瓜5 / 蕃薯5）","note":"指定4/11前配達","loss":0,"ship_date":"2026-04-09","tracking":"3301981152(已指定4/10到貨)","delivery":"順利送達","staff":"禎姊","improvement":"","resolved":true},{"id":"c090","type":"general","date":"2026-04-10","category":"出貨","reason":"少寄/寄錯","description":"訂購星星麵嚐鮮包，收到寶麵嚐鮮包","platform":"蝦皮","order_id":"2604077W7KPH80","customer":"w11100109","product":"星星嚐鮮包 1包（南瓜）","note":"","loss":0,"ship_date":"2026-04-10","tracking":"3304038662","delivery":"順利送達","staff":"小魚","improvement":"蝦皮改新格式，小魚第一次看還不熟悉","resolved":true},{"id":"c091","type":"general","date":"2026-04-10","category":"出貨","reason":"少寄/寄錯","description":"少收到一盒寶麵","platform":"官網","order_id":"20260401013632426","customer":"廖翊伶","product":"寶寶麵 1盒（芝麻）","note":"","loss":0,"ship_date":"2026-04-10","tracking":"3304670876","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c092","type":"general","date":"2026-04-13","category":"出貨","reason":"少寄/寄錯","description":"少收到三盒星星麵","platform":"官網","order_id":"20260330072613301","customer":"周慈安","product":"星星麵 3盒（花花2 / 惜福良品 ｜ 效期 4/20~12/28 區間 1）","note":"","loss":0,"ship_date":"2026-04-13","tracking":"3307910981","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c093","type":"general","date":"2026-04-14","category":"出貨","reason":"少寄/寄錯","description":"少收到一包嚐鮮包","platform":"蝦皮","order_id":"260404VCPAY100","customer":"huiyu_","product":"寶麵嚐鮮包 1包（芝麻）","note":"","loss":0,"ship_date":"2026-04-14","tracking":"3307912952","delivery":"順利送達","staff":"小魚","improvement":"蝦皮改新格式，小魚第一次看還不熟悉","resolved":true},{"id":"c094","type":"general","date":"2026-04-14","category":"出貨","reason":"少寄/寄錯","description":"少寄出贈品","platform":"蝦皮","order_id":"260404U4VTGVCK","customer":"m220619016","product":"森林拌麵 2包（隨機）","note":"","loss":0,"ship_date":"2026-04-14","tracking":"3308289412","delivery":"順利送達","staff":"小魚","improvement":"","resolved":true},{"id":"c095","type":"general","date":"2026-04-17","category":"出貨","reason":"少寄/寄錯","description":"少出貨","platform":"1 shop","order_id":"FN6041151297","customer":"LAU CHEUK YIU CHERRY","product":"寶寶義大利麵 2盒（螺旋）/輕脆燕麥 1包\n星星麵嚐鮮包 1包（補償小禮物）","note":"","loss":0,"ship_date":"2026-04-17","tracking":"SF0229742626045","delivery":"已簽收","staff":"怡媗/宸禎","improvement":"","resolved":true},{"id":"c096","type":"general","date":"2026-04-20","category":"出貨","reason":"少寄/寄錯","description":"少出貨","platform":"官網","order_id":"20260408170448138","customer":"周怡廷","product":"寶寶義大利麵 1盒（蝴蝶）","note":"","loss":0,"ship_date":"2026-04-20","tracking":"16337266566","delivery":"已完成取件","staff":"","improvement":"","resolved":false},{"id":"c097","type":"general","date":"2026-04-20","category":"出貨","reason":"少寄/寄錯","description":"少出貨","platform":"1 shop","order_id":"FN6040922042","customer":"林詠真","product":"寶麵嚐鮮包 6包（口味平均）","note":"","loss":0,"ship_date":"2026-04-20","tracking":"3313666845","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c098","type":"general","date":"2026-04-20","category":"生產","reason":"其他","description":"顧客反應麵食上除了原料纖維外還有毛毛的東西\n收退確認並補新的","platform":"官網","order_id":"20260107110438068","customer":"洪子婷","product":"寶寶麵 1盒（蕃薯）","note":"！！安排來回件！！","loss":0,"ship_date":"2026-04-20","tracking":"3313527490(已安排來回件)","delivery":"順利送達","staff":"小余","improvement":"","resolved":true},{"id":"c099","type":"general","date":"2026-04-21","category":"出貨","reason":"少寄/寄錯","description":"訂購組合僅收到醬","platform":"官網","order_id":"20260410050615311","customer":"黃英瑜","product":"寶寶義大利麵 1盒（蝴蝶）","note":"","loss":0,"ship_date":"2026-04-21","tracking":"3315349332","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c100","type":"general","date":"2026-04-23","category":"出貨","reason":"效期錯誤","description":"效期少於10個月（1/19）\n顧客備註提供最新效期","platform":"官網","order_id":"20260416062620348","customer":"吳姿慧","product":"寶寶麵 1盒（南瓜）","note":"","loss":0,"ship_date":"2026-04-24","tracking":"3319865076","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c101","type":"general","date":"2026-04-27","category":"生產","reason":"異物/鳥屎","description":"在麵體上發現大量黑點點（疑似蔬菜原料/小蟲）","platform":"1 shop","order_id":"FN6041149022","customer":"Venus Lau","product":"寶寶義大利麵 2盒（蝴蝶）","note":"","loss":0,"ship_date":"2026-04-27","tracking":"SF0 227 333 313 708","delivery":"","staff":"","improvement":"","resolved":false},{"id":"c102","type":"general","date":"2026-04-28","category":"包裝","reason":"異物/鳥屎","description":"包裝內發現蟲（非米蟲）","platform":"蝦皮","order_id":"2505282P5A652W","customer":"vica.kung","product":"星星麵嚐鮮包 2包（芝麻1胡蘿蔔1）","note":"","loss":0,"ship_date":"2026-04-28","tracking":"3323657923","delivery":"順利送達","staff":"宣","improvement":"","resolved":true},{"id":"c103","type":"general","date":"2026-04-29","category":"出貨","reason":"少寄/寄錯","description":"少寄出數量\n顧客訂購盒，寄成散包裝","platform":"蝦皮","order_id":"26041845GHT016","customer":"me.rabbitforn","product":"森林裸麵｜盒款 4盒（細麵 / 紫薯）\n森林裸麵｜散包 2包（細麵 / 南瓜）","note":"","loss":0,"ship_date":"2026-04-29","tracking":"3325675522","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c104","type":"general","date":"2026-04-30","category":"出貨","reason":"少寄/寄錯","description":"少寄出一組","platform":"官網","order_id":"20260421145509567","customer":"Philip Yuen","product":"寶寶義大利麵 3盒（蝴蝶/通心/螺旋）","note":"","loss":0,"ship_date":"2026-04-30","tracking":"SF5 199 713 337 201","delivery":"","staff":"","improvement":"","resolved":false},{"id":"c105","type":"general","date":"2026-05-04","category":"出貨","reason":"少寄/寄錯","description":"訂購細麵收到寬麵","platform":"蝦皮","order_id":"260414S3T8NTB5","customer":"s5e6ui","product":"（直接蝦皮申請退貨）","note":"","loss":0,"ship_date":"-","tracking":"","delivery":"","staff":"","improvement":"","resolved":false},{"id":"c106","type":"general","date":"2026-05-04","category":"出貨","reason":"少寄/寄錯","description":"品項錯誤","platform":"1 shop","order_id":"FN6042735245","customer":"劉雅禎","product":"寶寶義大利麵 3盒（蝴蝶/通心/螺旋）","note":"！！安排來回件！！","loss":0,"ship_date":"2026-05-04","tracking":"3329344395","delivery":"順利送達","staff":"宸禎/子毅","improvement":"","resolved":true},{"id":"c107","type":"general","date":"2026-05-04","category":"出貨","reason":"少寄/寄錯","description":"款式錯誤","platform":"官網","order_id":"20260421020908358","customer":"邱宣融","product":"森林星星麵｜特別款 1盒（車車派對）","note":"","loss":0,"ship_date":"2026-05-04","tracking":"3329944951","delivery":"順利送達","staff":"","improvement":"","resolved":true},{"id":"c108","type":"general","date":"2026-05-05","category":"出貨","reason":"少寄/寄錯","description":"訂購細麵收到寬麵","platform":"官網","order_id":"20260423131321249","customer":"Christy","product":"森林裸麵 3盒（蕃薯1/蔬菜1/紫薯1 細麵0.3cm）","note":"！！安排來回件！！","loss":0,"ship_date":"2026-05-05","tracking":"3331229134(已安排來回件)","delivery":"配送中","staff":"宸禎/子毅","improvement":"","resolved":false},{"id":"c109","type":"general","date":"2026-05-06","category":"出貨","reason":"少寄/寄錯","description":"少出貨品項","platform":"蝦皮","order_id":"260425Q2RR9XHU","customer":"kimmy522","product":"森林星星麵｜週年款 1盒\n白醬雙享組 1盒","note":"","loss":0,"ship_date":"2026-05-06","tracking":"3332876035","delivery":"配送中","staff":"宸禎/子毅","improvement":"","resolved":false},{"id":"c110","type":"general","date":"2026-05-06","category":"出貨","reason":"少寄/寄錯","description":"拌麵出貨數量錯誤","platform":"官網","order_id":"20260429144740188","customer":"莊博元","product":"森林拌麵 2包（蔬菜）","note":"","loss":0,"ship_date":"2026-05-07","tracking":"3334037044","delivery":"","staff":"宸禎/子毅","improvement":"","resolved":false},{"id":"c111","type":"general","date":"2026-05-08","category":"出貨","reason":"少寄/寄錯","description":"出錯品項","platform":"官網","order_id":"20260429070235649","customer":"YIU TSZ YAN","product":"寶寶義大利麵 2盒（螺旋2）","note":"","loss":0,"ship_date":"2026-05-11","tracking":"SF5136195184093","delivery":"","staff":"宸禎/子毅","improvement":"","resolved":false}],"returns":[{"id":"r001","type":"return","date":"2026-01-06","channel":"官網","order_id":"20251215141731123","reason":"超商未取貨","customer":"Emily Lin","amount":448.0,"product":"森林聖誕寶寶義麵1盒\n寶寶義大利麵1盒","contact_log":"1/7-未接\n1/19-未接","reshiped":false,"repurchase_amount":0},{"id":"r002","type":"return","date":"2026-01-12","channel":"官網","order_id":"20251218165510572","reason":"超商未取貨","customer":"賴慈秀","amount":398.0,"product":"寶寶麵2盒","contact_log":"1/19-未接","reshiped":false,"repurchase_amount":0},{"id":"r003","type":"return","date":"2026-01-14","channel":"官網","order_id":"20251225065320248","reason":"超商未取貨","customer":"林珊珊","amount":661.0,"product":"森林寶寶麵 - 插畫款1盒\n 森林聖誕寶寶義麵1盒 \n森林食譜1本","contact_log":"1/14-未接\n1/19-直接掛","reshiped":false,"repurchase_amount":0},{"id":"r004","type":"return","date":"2026-01-22","channel":"官網","order_id":"20260102141535764","reason":"超商未取貨","customer":"林珮如","amount":579.0,"product":"寶寶嚐鮮包 12包","contact_log":"1/22-未接\n1/26-官方訊息聯繫","reshiped":false,"repurchase_amount":0},{"id":"r006","type":"return","date":"2026-02-02","channel":"官網","order_id":"20260105070043307","reason":"超商未取貨","customer":"陳秀慧","amount":398.0,"product":"寶寶麵2盒","contact_log":"2/3-電話聯繫通知","reshiped":false,"repurchase_amount":0},{"id":"r007","type":"return","date":"2026-02-02","channel":"蝦皮","order_id":"2601142KXUPSNQ","reason":"超商未取貨","customer":"hueihueitsai","amount":862.0,"product":"金雞元寶禮盒2盒","contact_log":"2/3-訊息聯繫通知","reshiped":false,"repurchase_amount":0},{"id":"r008","type":"return","date":"2026-02-04","channel":"官網","order_id":"20260118154844913","reason":"超商未取貨","customer":"鍾沛庭","amount":1036.0,"product":"寶寶麵嚐鮮包12包\n寶寶義大利麵2盒\n寶寶麵1盒","contact_log":"2/4-未接","reshiped":false,"repurchase_amount":0},{"id":"r009","type":"return","date":"2026-02-05","channel":"蝦皮","order_id":"260125V78NUJ3K","reason":"超商未取貨","customer":"clara00000","amount":407.0,"product":"森林寶寶麵4盒\n寶寶麵嚐鮮包1包","contact_log":"(1/27已有新下單一筆）","reshiped":true,"repurchase_amount":462.0},{"id":"r010","type":"return","date":"2026-02-25","channel":"官網","order_id":"20260209040936558","reason":"超商未取貨","customer":"劉羽純","amount":969.0,"product":"寶寶義大利麵6盒","contact_log":"2/25-訊息聯繫","reshiped":true,"repurchase_amount":969.0},{"id":"r011","type":"return","date":"2026-02-25","channel":"官網","order_id":"20260131192303123","reason":"超商未取貨","customer":"馬沛翎","amount":398.0,"product":"寶寶麵2盒","contact_log":"2/25-未階","reshiped":false,"repurchase_amount":0},{"id":"r013","type":"return","date":"2026-03-11","channel":"蝦皮","order_id":"2601263K97KN7W","reason":"超商未取貨","customer":"wubear.0827","amount":398.0,"product":"森林寶寶麵 1盒","contact_log":"3/11-訊息聯繫","reshiped":true,"repurchase_amount":388.0},{"id":"r014","type":"return","date":"2026-03-11","channel":"官網","order_id":"20260127152616314","reason":"超商未取貨","customer":"彭涵","amount":976.0,"product":"寶麵嚐鮮包6包\n蝴蝶嚐鮮包3包\n米餅1包","contact_log":"3/11-拒接\n3/16-訊息聯繫","reshiped":false,"repurchase_amount":0},{"id":"r016","type":"return","date":"2026-04-10","channel":"官網","order_id":"20260315054532728","reason":"超商未取貨","customer":"方婉華","amount":660.0,"product":"森林星星麵特別款1盒\n森林星星麵1盒","contact_log":"4/10-未接\n4/13-未接","reshiped":false,"repurchase_amount":0},{"id":"r017","type":"return","date":"2026-04-10","channel":"官網","order_id":"20260316212255787","reason":"超商未取貨","customer":"陳亮璇","amount":900.0,"product":"Gift兔U 2組","contact_log":"4/10-未接\n4/13-回覆已不需要","reshiped":false,"repurchase_amount":0},{"id":"r018","type":"return","date":"2026-04-14","channel":"官網","order_id":"20260323175457203","reason":"超商未取貨","customer":"薛雅文","amount":398.0,"product":"寶寶麵2盒","contact_log":"4/15-未接\n4/16-未接","reshiped":false,"repurchase_amount":0},{"id":"r019","type":"return","date":"2026-04-16","channel":"官網","order_id":"20260315160358508","reason":"超商未取貨","customer":"嚴培宸","amount":435.0,"product":"Gift 兔 U 1組\n森林食譜1本","contact_log":"4/16-未接\n4/17-未接","reshiped":false,"repurchase_amount":0},{"id":"r020","type":"return","date":"2026-04-16","channel":"官網","order_id":"20260321074033233","reason":"超商未取貨","customer":"龔靜玲","amount":712.0,"product":"星球寶寶米餅6包","contact_log":"4/16-拒接\n4/17-未接","reshiped":false,"repurchase_amount":0},{"id":"r021","type":"return","date":"2026-04-22","channel":"官網","order_id":"20260329162528702","reason":"超商未取貨","customer":"洪廣元","amount":398.0,"product":"寶寶麵2盒","contact_log":"4/22-未接","reshiped":false,"repurchase_amount":0},{"id":"r022","type":"return","date":"2026-04-27","channel":"官網","order_id":"20260408082151063","reason":"超商未取貨","customer":"黃彤瑄","amount":503.0,"product":"寶寶麵2盒\n星球寶寶米餅1包","contact_log":"4/27-訊息安排","reshiped":true,"repurchase_amount":503.0},{"id":"r024","type":"return","date":"2026-05-05","channel":"官網","order_id":"20260403164332326","reason":"超商未取貨","customer":"H","amount":550.0,"product":"寶寶義大利麵2盒\n森林寶寶麵1盒\n森林寶寶麵PLUS｜Mini 1包","contact_log":"5/5-訊息安排","reshiped":false,"repurchase_amount":550.0}],"payment_fails":[{"id":"p001","type":"payment_fail","date":"2026-01-05","platform":"官網","fail_reason":"付款失敗","order_id":"20260104024603225","customer":"何庭瑋","product":"寶寶義麵雙享組 3盒\n特殊星星麵1盒","amount":1384.0,"contact_log":"1/5-未接\n1/7-未接","repurchased":false,"repurchase_date":"nan","repurchase_amount":0,"error_note":"returnCode is 1288: Credit card has insufficient funds.\n（信用卡餘額不足）"},{"id":"p002","type":"payment_fail","date":"2026-01-19","platform":"官網","fail_reason":"超過付款時間","order_id":"20260115160252770","customer":"王玉如","product":"無塑｜森林星星麵2盒","amount":1043.0,"contact_log":"1/19-回覆會再下單","repurchased":true,"repurchase_date":"2026-02-02","repurchase_amount":2125.0,"error_note":""},{"id":"p003","type":"payment_fail","date":"2026-01-22","platform":"官網","fail_reason":"超過付款時間","order_id":"20260122120725079","customer":"江婉毓","product":"新春見麵禮 2組\n經典必備組 1組\n森林繽紛禮盒 1盒\n惜福良品｜福利品-西式 1組\n土地公｜發財麵 10盒\n森林拌麵 2包\n招財禮｜1人份 1盒","amount":3829.0,"contact_log":"1/23-回覆會再下單","repurchased":true,"repurchase_date":"2026-01-23","repurchase_amount":4154.0,"error_note":""},{"id":"p004","type":"payment_fail","date":"2026-02-02","platform":"官網","fail_reason":"超過付款時間","order_id":"20260131022842898","customer":"賴秀怡","product":"森林無塑｜裸麵1盒\n裸麵5包\n拌麵6包\n元寶雞｜1人份 1盒","amount":1456.0,"contact_log":"2/2-未接\n2/4-回覆會再下單","repurchased":false,"repurchase_date":"nan","repurchase_amount":0,"error_note":""},{"id":"p005","type":"payment_fail","date":"2026-02-23","platform":"官網","fail_reason":"超過付款時間","order_id":"20260218034458208","customer":"陳司桓","product":"寶寶義麵雙享組 3盒","amount":969.0,"contact_log":"2/23-回覆會再下單","repurchased":false,"repurchase_date":"nan","repurchase_amount":0,"error_note":""},{"id":"p006","type":"payment_fail","date":"2026-02-23","platform":"官網","fail_reason":"超過付款時間","order_id":"20260216131721051","customer":"郭子暄","product":"寶寶麵6包\n捲捲麵3包\n米餅1包","amount":453.0,"contact_log":"2/23-未接","repurchased":false,"repurchase_date":"nan","repurchase_amount":0,"error_note":""},{"id":"p007","type":"payment_fail","date":"2026-03-05","platform":"官網","fail_reason":"超過付款時間","order_id":"20260304094303129","customer":"王惠萱","product":"星球米餅2包","amount":330.0,"contact_log":"3/5-未接\n3/9-訊息聯繫","repurchased":true,"repurchase_date":"2026-03-17","repurchase_amount":330.0,"error_note":""},{"id":"p008","type":"payment_fail","date":"2026-03-12","platform":"官網","fail_reason":"超過付款時間","order_id":"20260312000056394","customer":"chini1200","product":"森林寶寶義麵雙享組 2盒\n寶寶義大利麵 3盒","amount":1904.0,"contact_log":"","repurchased":true,"repurchase_date":"2026-03-13","repurchase_amount":1904.0,"error_note":"4452: Cardholder failed 3D authentication"},{"id":"p009","type":"payment_fail","date":"2026-03-12","platform":"官網","fail_reason":"超過付款時間","order_id":"20260312110327295","customer":"林楚涵","product":"森林寶寶義麵雙享組 2盒\n寶寶麵PLUS｜Mini小小版  1包","amount":768.0,"contact_log":"3/13-未接\n3/16-訊息聯繫","repurchased":false,"repurchase_date":"nan","repurchase_amount":0,"error_note":""},{"id":"p010","type":"payment_fail","date":"2026-03-20","platform":"官網","fail_reason":"超過付款時間","order_id":"20260319091956693","customer":"楊翔筑","product":"寶寶麵2盒","amount":398.0,"contact_log":"3/20-回覆會再下單\n3/23-訊息聯繫","repurchased":true,"repurchase_date":"2026-03-30","repurchase_amount":428.0,"error_note":"有再重新下單\n但仍超過付款間（？？？）"},{"id":"p011","type":"payment_fail","date":"2026-04-29","platform":"官網","fail_reason":"付款失敗","order_id":"20260429035751263","customer":"Iris Hoi","product":"寶寶義大利麵6盒\n綜合星星麵嚐鮮包1包","amount":2149.0,"contact_log":"429-訊息聯繫","repurchased":false,"repurchase_date":"nan","repurchase_amount":0,"error_note":"4452: Cardholder failed 3D authentication"}],"dealer_complaints":[{"id":"d001","type":"dealer","date":"2026-01-21","dealer":"卡多摩","category":"出貨","reason":"進貨異常","description":"誤寄到別家分店","product":"1/21請物流收轉","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true},{"id":"d002","type":"dealer","date":"2026-01-23","dealer":"好娃娃親子","category":"出貨","reason":"進貨異常","description":"少寄糙米餅","product":"1/26補寄","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true},{"id":"d003","type":"dealer","date":"2026-01-23","dealer":"半山夢工廠","category":"出貨","reason":"進貨異常","description":"少寄米餅","product":"無需補寄","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true},{"id":"d004","type":"dealer","date":"2026-01-23","dealer":"媽寶超市","category":"包裝","reason":"進貨異常","description":"南瓜寶麵嚐鮮包套卡錯誤","product":"隨貨補寄","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true},{"id":"d005","type":"dealer","date":"2026-03-09","dealer":"麗兒采家","category":"包裝","reason":"進貨異常","description":"封膜內有蟲","product":"退換貨","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true},{"id":"d006","type":"dealer","date":"2026-03-09","dealer":"卡多摩","category":"其他","reason":"盒損","description":"盒損","product":"","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true},{"id":"d007","type":"dealer","date":"2026-03-13","dealer":"優迪","category":"包裝","reason":"進貨異常","description":"原貼污損","product":"","note":"","ship_date":"nan","tracking":"","staff":"雅萱","improvement":"包裝時確認不會有重複貼的狀況，應該是放入庫存箱時圓貼較容易掀起導致這狀況(抱歉)","resolved":true},{"id":"d008","type":"dealer","date":"2026-03-17","dealer":"卡多摩","category":"物流","reason":"盒損","description":"物流暴力！","product":"補寄空盒","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true},{"id":"d009","type":"dealer","date":"2026-03-17","dealer":"卡多摩","category":"物流","reason":"盒損","description":"物流暴力！","product":"補寄空盒","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true},{"id":"d010","type":"dealer","date":"2026-03-23","dealer":"K041 台北中華店","category":"物流","reason":"盒損","description":"物流暴力！\n3280531542","product":"補寄空盒","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true},{"id":"d011","type":"dealer","date":"2026-03-25","dealer":"K023 台北民權店","category":"物流","reason":"盒損","description":"物流暴力！\n3279114473","product":"補寄空盒","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true},{"id":"d012","type":"dealer","date":"2026-04-14","dealer":"K035 龜山長庚店","category":"出貨","reason":"進貨異常","description":"少寄","product":"隨貨補寄","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true},{"id":"d013","type":"dealer","date":"2026-04-21","dealer":"進祥藥局","category":"出貨","reason":"進貨異常","description":"少寄蕎麥","product":"","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true},{"id":"d014","type":"dealer","date":"2026-04-21","dealer":"Q寶婦嬰用品店","category":"出貨","reason":"進貨異常","description":"嚐鮮包寄成盒裝","product":"","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true},{"id":"d015","type":"dealer","date":"2026-04-28","dealer":"Reallock Carmen","category":"出貨","reason":"進貨異常","description":"外盒毀損","product":"","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true},{"id":"d016","type":"dealer","date":"2026-04-28","dealer":"寶寶共和國-中壢","category":"出貨","reason":"進貨異常","description":"外盒毀損","product":"","note":"","ship_date":"nan","tracking":"","staff":"","improvement":"","resolved":true}]};
+
+// ══════════════════════════════════════════
+// LOCAL DB
+// ══════════════════════════════════════════
+const LS = {
+  get(k){ try{return JSON.parse(localStorage.getItem('fnd_'+k))||null}catch{return null} },
+  set(k,v){ localStorage.setItem('fnd_'+k,JSON.stringify(v)) },
+  id(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,5) }
+};
+function getD(k){
+  const s=LS.get(k);
+  const arr=(s&&s.length)?s:(SEED[k]||[]);
+  // 正規化 resolved 欄位（localStorage 讀回可能是字串）
+  return arr.map(item=>{
+    if('resolved' in item){
+      item.resolved = item.resolved===true||item.resolved==='true'||item.resolved===1;
+    }
+    if('reshiped' in item){
+      item.reshiped = item.reshiped===true||item.reshiped==='true'||item.reshiped===1;
+    }
+    if('repurchased' in item){
+      item.repurchased = item.repurchased===true||item.repurchased==='true'||item.repurchased===1;
+    }
+    return item;
+  });
+}
+function setD(k,v){ LS.set(k,v); }
+
+// ══════════════════════════════════════════
+// CONFIG（Apps Script URL）
+// ══════════════════════════════════════════
+function getCfg(){ return LS.get('config')||{scriptUrl:'',sheetId:'14PmqfXJu6QFkCjHhcrlrcqPmw8iBYB0BKeMAhfRDSWg'}; }
+function saveConfig(){
+  const url=document.getElementById('cfg-script-url').value.trim();
+  const id=document.getElementById('cfg-sheet-id').value.trim();
+  LS.set('config',{scriptUrl:url,sheetId:id});
+  toast('✓ 設定已儲存');
+}
+
+// ══════════════════════════════════════════
+// GOOGLE SHEETS SYNC
+// ══════════════════════════════════════════
+
+// ════════════════════════════════════════════
+// PHOTO UPLOAD SYSTEM
+// ════════════════════════════════════════════
+let pendingPhotos=[];
+
+function initPhotoUpload(containerId){
+  pendingPhotos=[];
+  const box=document.getElementById(containerId); if(!box) return;
+  box.innerHTML=`
+    <div class="photo-upload-area" onclick="document.getElementById('photo-file-input').click()">
+      <input type="file" id="photo-file-input" accept="image/*" multiple style="display:none"
+        onchange="handlePhotoSelect(event,'${containerId}')">
+      <div style="pointer-events:none">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--mgrey)" stroke-width="1.5" style="margin-bottom:5px">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <div style="font-size:12px;color:var(--muted)">點擊選取照片（最多3張）</div>
+        <div style="font-size:10px;color:var(--mgrey);margin-top:2px">JPG、PNG，每張限 5MB</div>
+      </div>
+    </div>
+    <div class="photo-grid" id="photo-thumb-grid"></div>`;
+  const zone=box.querySelector('.photo-upload-area');
+  if(zone){
+    zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over');});
+    zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+    zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');handleFiles([...e.dataTransfer.files],containerId);});
+  }
+}
+
+function handlePhotoSelect(evt,containerId){ handleFiles([...evt.target.files],containerId); }
+
+function handleFiles(files,containerId){
+  const imgs=files.filter(f=>f.type.startsWith('image/'));
+  const rem=3-pendingPhotos.length;
+  if(rem<=0){toast('最多上傳3張照片','error');return;}
+  imgs.slice(0,rem).forEach(file=>{
+    if(file.size>5*1024*1024){toast(file.name+' 超過5MB','error');return;}
+    const photo={file,localUrl:URL.createObjectURL(file),uploaded:false,driveUrl:'',thumbUrl:'',fileId:''};
+    pendingPhotos.push(photo);
+    renderThumbGrid();
+    uploadPhoto(photo);
+  });
+}
+
+function renderThumbGrid(){
+  const grid=document.getElementById('photo-thumb-grid'); if(!grid) return;
+  grid.innerHTML=pendingPhotos.map((p,i)=>`
+    <div class="photo-thumb">
+      <img src="${p.thumbUrl||p.localUrl}" alt="照片${i+1}">
+      ${!p.uploaded?'<div class="uploading-overlay">上傳中...</div>':''}
+      <button class="remove-btn" onclick="removePhoto(${i})">✕</button>
+    </div>`).join('');
+}
+
+function removePhoto(idx){ pendingPhotos.splice(idx,1); renderThumbGrid(); }
+
+async function uploadPhoto(photo){
+  const cfg=getCfg();
+  if(!cfg.scriptUrl){
+    photo.uploaded=true; photo.driveUrl=photo.localUrl; photo.thumbUrl=photo.localUrl;
+    renderThumbGrid(); return;
+  }
+  try{
+    const base64=await fileToBase64(photo.file);
+    const r=await fetch(cfg.scriptUrl,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'upload_photo',base64:base64.split(',')[1],mimeType:photo.file.type,filename:photo.file.name})});
+    const data=await r.json();
+    if(data.ok){
+      photo.uploaded=true; photo.driveUrl=data.viewUrl; photo.thumbUrl=data.thumbUrl; photo.fileId=data.fileId;
+      renderThumbGrid(); toast('✓ 照片已上傳到 Drive');
+    } else throw new Error(data.error||'上傳失敗');
+  }catch(err){
+    photo.uploaded=true; photo.driveUrl=photo.localUrl; photo.thumbUrl=photo.localUrl;
+    renderThumbGrid(); toast('照片暫存本地（需連線才同步）');
+  }
+}
+
+function fileToBase64(file){
+  return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=()=>rej(new Error('讀取失敗'));r.readAsDataURL(file);});
+}
+
+function getPhotoUrls(){ return pendingPhotos.map(p=>p.driveUrl).filter(Boolean); }
+
+function renderPhotoPreview(urls){
+  if(!urls||!urls.length) return '';
+  return `<div class="photo-preview-row">${urls.map((url,i)=>`
+    <div class="photo-preview-item" onclick="openPhoto('${url}')" title="點擊查看">
+      <img src="${url}" alt="照片${i+1}" onerror="this.parentElement.style.display='none'">
+    </div>`).join('')}</div>`;
+}
+
+function openPhoto(url){
+  if(url.startsWith('blob:')||url.startsWith('data:')){const w=window.open();w.document.write('<img src="'+url+'" style="max-width:100%">');}
+  else window.open(url,'_blank');
+}
+
+let isSyncing=false;
+function setSyncStatus(s){ // 'ok','syncing','error'
+  const dot=document.getElementById('sync-dot');
+  dot.className='sync-indicator '+(s==='syncing'?'syncing':s==='error'?'error':'');
+  dot.style.background=s==='error'?'var(--red)':s==='ok'?'var(--green)':'var(--noodle)';
+}
+function setSyncTime(t){ document.getElementById('sync-time').textContent=t?'最後同步 '+t:''; }
+
+async function syncSheets(){
+  const cfg=getCfg();
+  if(!cfg.scriptUrl){
+    setSyncStatus('error');
+    document.getElementById('sync-time').textContent='請至設定填入 Script URL';
+    return;
+  }
+  if(isSyncing) return;
+  isSyncing=true;
+  setSyncStatus('syncing');
+  document.getElementById('sync-btn').disabled=true;
+  try{
+    // 讀取 Sheets 資料
+    const res=await fetch(cfg.scriptUrl+'?action=read&sheetId='+cfg.sheetId);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    if(data.error) throw new Error(data.error);
+    // 合併：以 Sheets 資料為主，但保留 local 的新增（沒有在 Sheets 的）
+    ['complaints','returns','payment_fails','dealer_complaints'].forEach(k=>{
+      if(data[k]&&data[k].length) setD(k,data[k]);
+    });
+    setSyncStatus('ok');
+    setSyncTime(new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}));
+    toast('✓ 已從 Sheets 同步');
+    renderAll();
+  }catch(e){
+    setSyncStatus('error');
+    toast('同步失敗：'+e.message,'error');
+  }
+  isSyncing=false;
+  document.getElementById('sync-btn').disabled=false;
+}
+
+async function pushToSheets(key,item,action='upsert'){
+  const cfg=getCfg();
+  if(!cfg.scriptUrl) return; // 未設定則靜默跳過
+  try{
+    await fetch(cfg.scriptUrl,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action,key,item,sheetId:cfg.sheetId})
+    });
+    setSyncStatus('ok');
+    setSyncTime(new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}));
+  }catch(e){
+    setSyncStatus('error');
+  }
+}
+
+async function testConnection(){
+  const url=document.getElementById('cfg-script-url').value.trim();
+  const res=document.getElementById('conn-result');
+  if(!url){res.textContent='請先輸入 URL';res.style.color='var(--red)';return;}
+  res.textContent='測試中...'; res.style.color='var(--muted)';
+  try{
+    const r=await fetch(url+'?action=ping');
+    const d=await r.json();
+    if(d.ok){res.textContent='✓ 連線成功！Sheet 讀取正常';res.style.color='var(--green)';}
+    else{res.textContent='✗ 回應異常：'+JSON.stringify(d);res.style.color='var(--red)';}
+  }catch(e){
+    res.textContent='✗ 連線失敗，請確認 URL 和部署設定。錯誤：'+e.message;
+    res.style.color='var(--red)';
+  }
+}
+
+// ══════════════════════════════════════════
+// PERIOD HELPERS
+// ══════════════════════════════════════════
+let globalPeriod={from:'',to:''};
+const periodState={c:{from:'',to:''},r:{from:'',to:''},p:{from:'',to:''},d:{from:'',to:''}};
+
+function dateRange(mode){
+  const now=new Date(); const y=now.getFullYear(),m=now.getMonth(),d=now.getDate();
+  if(mode==='week'){
+    const dow=now.getDay()||7;
+    const mon=new Date(y,m,d-dow+1);
+    const sun=new Date(y,m,d+(7-dow));
+    return{from:fmt(mon),to:fmt(sun)};
+  }
+  if(mode==='month') return{from:fmt(new Date(y,m,1)),to:fmt(new Date(y,m+1,0))};
+  if(mode==='quarter'){
+    const q=Math.floor(m/3);
+    return{from:fmt(new Date(y,q*3,1)),to:fmt(new Date(y,q*3+3,0))};
+  }
+  if(mode==='year') return{from:fmt(new Date(y,0,1)),to:fmt(new Date(y,11,31))};
+  return{from:'',to:''};
+}
+function fmt(d){ return d.toISOString().slice(0,10); }
+
+function setPeriod(mode,btn){
+  document.querySelectorAll('#ov-period .period-preset').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const r=dateRange(mode);
+  globalPeriod=r;
+  if(r.from) document.getElementById('ov-date-from').value=r.from;
+  if(r.to)   document.getElementById('ov-date-to').value=r.to;
+  renderOverview();
+}
+function setPeriodFor(prefix,btn,mode){
+  const group=btn.closest('.period-bar').querySelectorAll('.period-preset');
+  group.forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+  const r=dateRange(mode);
+  periodState[prefix]=r;
+  const fe=document.getElementById(prefix+'-from'), te=document.getElementById(prefix+'-to');
+  if(fe&&r.from) fe.value=r.from;
+  if(te&&r.to)   te.value=r.to;
+  const renders={c:renderComplaints,r:renderReturns,p:renderPayments,d:renderDealers};
+  if(renders[prefix]) renders[prefix]();
+}
+function inPeriod(dateStr,from,to){
+  if(!from&&!to) return true;
+  if(from&&dateStr<from) return false;
+  if(to&&dateStr>to) return false;
+  return true;
+}
+
+// ══════════════════════════════════════════
+// SORT
+// ══════════════════════════════════════════
+const sortS={};
+function srt(key,field){
+  const cur=sortS[key]; const dir=(cur&&cur.field===field&&cur.dir==='asc')?'desc':'asc';
+  sortS[key]={field,dir};
+  const m={complaints:renderComplaints,returns:renderReturns,payment_fails:renderPayments,dealer_complaints:renderDealers};
+  if(m[key]) m[key]();
+}
+function applySort(arr,key){
+  const s=sortS[key]; if(!s) return arr;
+  return [...arr].sort((a,b)=>{
+    const va=a[s.field]??'',vb=b[s.field]??'';
+    const c=typeof va==='number'?va-vb:String(va).localeCompare(String(vb),'zh-TW');
+    return s.dir==='asc'?c:-c;
+  });
+}
+
+// ══════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function money(n){ return n?'NT$'+Number(n).toLocaleString():'—'; }
+function badge(t,c){ return `<span class="badge ${c}">${esc(t)}</span>`; }
+function toast(msg,type='ok'){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.style.borderLeftColor=type==='error'?'var(--red)':'var(--noodle)';
+  el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2800);
+}
+function closeMo(id){ document.getElementById('mo-'+id).classList.remove('open'); }
+
+function bReason(r){
+  if(!r||r==='-') return badge('—','b-grey');
+  const t=r.split(',')[0].trim();
+  if(t.includes('少寄')||t.includes('寄錯')) return badge(t,'b-orange');
+  if(t.includes('盒損')) return badge(t,'b-yellow');
+  if(t.includes('異物')||t.includes('鳥屎')) return badge(t,'b-red');
+  if(t.includes('商品不完整')) return badge(t,'b-blue');
+  if(t.includes('效期')) return badge(t,'b-purple');
+  if(t.includes('重複寄送')) return badge(t,'b-blue');
+  return badge(t,'b-grey');
+}
+function bCat(c){
+  if(!c||c==='-') return '';
+  const t=c.split(',')[0].trim();
+  const m={出貨:'b-orange',包裝:'b-blue',生產:'b-red',客服:'b-yellow',行銷:'b-purple',物流:'b-grey'};
+  return badge(t,m[t]||'b-grey');
+}
+function bStatus(r){ return r?badge('已結案','b-green'):badge('未結案','b-red'); }
+function bWarn(item){
+  const missing=warnReasons(item);
+  return missing.length?`<span class="badge b-warn">⚠ 未填：${missing.join('/')}</span>`:'';
+}
+
+function hasWarn(item){
+  const noStaff      = !item.staff || item.staff==='-' || item.staff.trim()==='';
+  const noImprove    = !item.improvement || item.improvement==='-' || item.improvement==='nan' || item.improvement.trim()==='';
+  // 一般客訴和經銷客訴都要求填改善方式和負責人
+  // 一般客訴額外要求：損失金額（客訴訂單金額）必填
+  const noLoss       = item.type==='general' && (item.loss===undefined || item.loss===null || item.loss===0 || item.loss==='');
+  return noStaff || noImprove || noLoss;
+}
+function warnReasons(item){
+  const missing=[];
+  if(!item.staff||item.staff==='-'||item.staff.trim()==='') missing.push('負責人員');
+  if(!item.improvement||item.improvement==='-'||item.improvement==='nan'||item.improvement.trim()==='') missing.push('改善方式');
+  if(item.type==='general'&&(item.loss===undefined||item.loss===null||item.loss===0||item.loss==='')) missing.push('客訴訂單金額');
+  return missing;
+}
+
+// ══════════════════════════════════════════
+// TAB
+// ══════════════════════════════════════════
+function switchTabById(id){
+  const tab=document.querySelector(`.tab[data-tab="${id}"]`);
+  if(tab){ switchTab(tab,id); }
+}
+function switchTab(el,id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-'+id).classList.add('active');
+  const m={overview:renderOverview,complaints:renderComplaints,returns:renderReturns,payments:renderPayments,dealers:renderDealers,settings:renderSettings};
+  if(m[id]) m[id]();
+}
+
+function renderAll(){ updateHeaderStats(); renderOverview(); }
+
+function updateHeaderStats(){
+  const c=getD('complaints'),d=getD('dealer_complaints');
+  const total=c.length+getD('returns').length+getD('payment_fails').length+d.length;
+  const pending=c.filter(x=>!x.resolved).length+d.filter(x=>!x.resolved).length;
+  const warn=c.filter(hasWarn).length+d.filter(hasWarn).length;
+  document.getElementById('h-total').textContent=total;
+  document.getElementById('h-pending').textContent=pending;
+  document.getElementById('h-warn').textContent=warn;
+  document.getElementById('tb-c').textContent=c.length;
+  document.getElementById('tb-r').textContent=getD('returns').length;
+  document.getElementById('tb-p').textContent=getD('payment_fails').length;
+  document.getElementById('tb-d').textContent=d.length;
+  const cwarn=c.filter(hasWarn).length;
+  const dw=document.getElementById('tb-c-warn'),ddw=document.getElementById('tb-d-warn');
+  if(dw){
+    dw.textContent=cwarn+'筆未填';
+    dw.title=cwarn+'筆未填負責人或改善方式';
+    dw.style.display=cwarn?'':'none';
+  }
+  const dwarn=d.filter(hasWarn).length;
+  if(ddw){
+    ddw.textContent=dwarn+'筆未填';
+    ddw.title=dwarn+'筆未填負責人或改善方式';
+    ddw.style.display=dwarn?'':'none';
+  }
+}
+
+// ══════════════════════════════════════════
+// OVERVIEW
+// ══════════════════════════════════════════
+function renderOverview(){
+  updateHeaderStats();
+  const from=globalPeriod.from||document.getElementById('ov-date-from')?.value||'';
+  const to=globalPeriod.to||document.getElementById('ov-date-to')?.value||'';
+  let comp=getD('complaints').filter(c=>inPeriod(c.date,from,to));
+  const ret=getD('returns').filter(r=>inPeriod(r.date,from,to));
+  const pay=getD('payment_fails').filter(p=>inPeriod(p.date,from,to));
+  const deal=getD('dealer_complaints').filter(d=>inPeriod(d.date,from,to));
+
+  const totalLoss=comp.reduce((s,c)=>s+(c.loss||0),0)+ret.reduce((s,r)=>s+(r.amount||0),0);
+  const warnComp=comp.filter(hasWarn);
+  const warnDeal=deal.filter(hasWarn);
+
+  // ── 未結案警示 Banner ──
+  const pendingComp  = comp.filter(c=>!c.resolved);
+  const pendingDeal  = deal.filter(d=>!d.resolved);
+  const pendingWarn  = [...comp,...deal].filter(x=>!x.resolved&&hasWarn(x));
+  const totalPending = pendingComp.length + pendingDeal.length;
+  const banner = document.getElementById('ov-pending-banner');
+  if(banner){
+    if(totalPending>0){
+      banner.style.display='';
+      banner.innerHTML=`
+        <div style="
+          display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+          padding:14px 20px;border-radius:10px;
+          background:linear-gradient(135deg,#c0392b 0%,#e74c3c 100%);
+          color:#fff;box-shadow:0 2px 12px rgba(192,57,43,.3);
+        ">
+          <div style="display:flex;align-items:center;gap:16px">
+            <div style="font-family:'Bitter',serif;font-size:36px;font-weight:700;line-height:1">${totalPending}</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;margin-bottom:2px">筆異常訂單未結案</div>
+              <div style="font-size:11px;opacity:.8">
+                一般客訴 ${pendingComp.length} 筆・經銷客訴 ${pendingDeal.length} 筆
+                ${pendingWarn.length>0?`・<strong style="color:#FFE082">⚠ 其中 ${pendingWarn.length} 筆未填必要欄位</strong>`:''}
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${pendingWarn.length>0?`<button onclick="document.getElementById('ov-warn-list').scrollIntoView({behavior:'smooth'})"
+              style="padding:6px 14px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:5px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Bitter',serif">
+              ⚠ 查看未填欄位
+            </button>`:''}
+            <button onclick="switchTabById('complaints')"
+              style="padding:6px 14px;background:rgba(255,255,255,.9);border:none;border-radius:5px;color:var(--red);font-size:12px;font-weight:700;cursor:pointer;font-family:'Bitter',serif">
+              查看未結案記錄 →
+            </button>
+          </div>
+        </div>`;
+    } else {
+      banner.style.display='';
+      banner.innerHTML=`<div style="padding:10px 16px;border-radius:8px;background:var(--green-l);border:1px solid var(--green);color:var(--forest);font-size:13px;font-weight:700">
+        ✓ 目前所有異常訂單均已結案
+      </div>`;
+    }
+  }
+
+  document.getElementById('ov-stats').innerHTML=[
+    {l:'一般客訴',v:comp.length,s:`未結 ${comp.filter(c=>!c.resolved).length} 筆`,c:'s-red'},
+    {l:'退貨',v:ret.length,s:'超商未取貨為主',c:'s-orange'},
+    {l:'付款失敗',v:pay.length,s:`未回購 ${pay.filter(p=>!p.repurchased).length} 筆`,c:'s-purple'},
+    {l:'經銷客訴',v:deal.length,s:`未結 ${deal.filter(d=>!d.resolved).length} 筆`,c:'s-green'},
+    {l:'補寄損失',v:money(comp.reduce((s,c)=>s+(c.loss||0),0)),s:'補寄成本估算',c:''},
+    {l:'退貨金額',v:money(ret.reduce((s,r)=>s+(r.amount||0),0)),s:'超商未取貨',c:'s-orange'},
+    {l:'⚠ 未填必填欄位',v:warnComp.length+warnDeal.length,s:`共 ${pendingWarn.length} 筆需優先補填`,c:warnComp.length+warnDeal.length>0?'s-red':''},
+    {l:'期間',v:from&&to?from.slice(5)+'～'+to.slice(5):'全部',s:'依左上時間區間',c:''},
+  ].map(s=>`<div class="stat ${s.c}"><div class="stat-label">${s.l}</div><div class="stat-val">${s.v}</div><div class="stat-sub">${s.s}</div></div>`).join('');
+
+  // Charts
+  const maxBar=(obj)=>Math.max(...Object.values(obj),1);
+  const barHTML=(obj,colorMap,max)=>Object.entries(obj).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`
+    <div class="bar-row">
+      <div class="bar-label" title="${esc(k)}">${esc(k)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${n/max*100}%;background:${colorMap[k]||'var(--mgrey)'}"></div></div>
+      <div class="bar-count">${n}</div>
+    </div>`).join('');
+
+  const reasons={};
+  comp.forEach(c=>{const r=c.reason.split(',')[0].trim();reasons[r]=(reasons[r]||0)+1;});
+  const rColors={'少寄/寄錯':'var(--orange)','盒損/凹損':'var(--yellow)','異物/鳥屎':'var(--red)','商品不完整':'var(--purple)','效期錯誤':'#8e44ad','漏單未出':'var(--forest)'};
+  document.getElementById('reason-chart').innerHTML=barHTML(reasons,rColors,maxBar(reasons))||'<p style="color:var(--muted);font-size:12px">此區間無資料</p>';
+
+  const months={};
+  comp.forEach(c=>{const m=c.date.slice(0,7);months[m]=(months[m]||0)+1;});
+  const mMax=maxBar(months);
+  document.getElementById('month-chart').innerHTML=Object.entries(months).sort().map(([m,n])=>`
+    <div class="month-col">
+      <div class="month-cnt">${n}</div>
+      <div class="month-bar" style="height:${Math.max(n/mMax*64,4)}px"></div>
+      <div class="month-lbl">${m.slice(5)}月</div>
+    </div>`).join('')||'<p style="color:var(--muted);font-size:12px">此區間無資料</p>';
+
+  const plats={};
+  comp.forEach(c=>{const p=c.platform||'其他';plats[p]=(plats[p]||0)+1;});
+  const pColors={'官網':'var(--green)','蝦皮':'#e67e22','1 shop':'var(--purple)','其他':'var(--mgrey)'};
+  document.getElementById('platform-chart').innerHTML=barHTML(plats,pColors,maxBar(plats));
+
+  const cats={};
+  comp.forEach(c=>{c.category.split(',').forEach(x=>{const t=x.trim();if(t)cats[t]=(cats[t]||0)+1;});});
+  const cColors={'出貨':'var(--orange)','包裝':'var(--purple)','生產':'var(--red)','客服':'var(--yellow)','行銷':'var(--green)'};
+  document.getElementById('category-chart').innerHTML=barHTML(cats,cColors,maxBar(cats));
+
+  // Warning list
+  const warns=[...warnComp.map(x=>({...x,_type:'complaint'})),...warnDeal.map(x=>({...x,_type:'dealer'}))];
+  document.getElementById('ov-warn-list').innerHTML=warns.length
+    ? `<div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>類型</th><th>日期</th><th>客戶/廠商</th><th>問題原因</th><th>缺少欄位</th><th>操作</th></tr></thead><tbody>
+      ${warns.map(w=>`<tr class="warn-row">
+        <td>${badge(w._type==='complaint'?'一般客訴':'經銷客訴',w._type==='complaint'?'b-red':'b-green')}</td>
+        <td style="font-family:'Bitter',serif">${w.date}</td>
+        <td>${esc(w.customer||w.dealer||'—')}</td>
+        <td>${bReason(w.reason)}</td>
+        <td>${bWarn(w)}</td>
+        <td><button class="btn btn-xs btn-outline" onclick="openEdit('${w._type==='complaint'?'complaint':'dealer'}','${w.id}')">填寫</button></td>
+      </tr>`).join('')}
+    </tbody></table></div>`
+    : '<p style="color:var(--forest);font-size:12px;margin-top:8px">✓ 所有記錄均已填寫完整</p>';
+
+  // ── 負責人員出錯統計 ──
+  renderStaffStats(comp, deal);
+}
+
+// ══════════════════════════════════════════
+// STAFF STATS
+// ══════════════════════════════════════════
+function renderStaffStats(comp, deal){
+  const box=document.getElementById('ov-staff-stats'); if(!box) return;
+
+  // 合併所有有填負責人的記錄
+  const allItems=[
+    ...comp.filter(c=>c.staff&&c.staff.trim()&&c.staff!=='-').map(c=>({
+      staff:c.staff.trim(), type:'complaint', label:'一般客訴',
+      date:c.date, loss:c.loss||0, reason:c.reason,
+      customer:c.customer, resolved:c.resolved, id:c.id,
+    })),
+    ...deal.filter(d=>d.staff&&d.staff.trim()&&d.staff!=='-').map(d=>({
+      staff:d.staff.trim(), type:'dealer', label:'經銷客訴',
+      date:d.date, loss:0, reason:d.reason,
+      customer:d.dealer, resolved:d.resolved, id:d.id,
+    })),
+  ];
+
+  if(!allItems.length){
+    box.innerHTML='<p style="font-size:12px;color:var(--muted)">此區間內尚無已填寫負責人的記錄</p>';
+    window._staffComp=comp; window._staffDeal=deal;
+    return;
+  }
+
+  // 按負責人彙整
+  const staffMap={};
+  allItems.forEach(item=>{
+    const s=item.staff;
+    if(!staffMap[s]) staffMap[s]={name:s,total:0,resolved:0,pending:0,totalLoss:0,complaint:0,dealer:0};
+    staffMap[s].total++;
+    staffMap[s].totalLoss+=item.loss;
+    if(item.resolved) staffMap[s].resolved++; else staffMap[s].pending++;
+    if(item.type==='complaint') staffMap[s].complaint++; else staffMap[s].dealer++;
+  });
+
+  const staffList=Object.values(staffMap).sort((a,b)=>b.total-a.total);
+  const maxTotal=Math.max(...staffList.map(s=>s.total),1);
+  const maxLoss =Math.max(...staffList.map(s=>s.totalLoss),1);
+
+  const MAX_STAFF_SHOW = 5;
+  const showAll = box.dataset.showAll === '1';
+  const displayList = showAll ? staffList : staffList.slice(0, MAX_STAFF_SHOW);
+  const hasMore = staffList.length > MAX_STAFF_SHOW;
+
+  box.innerHTML=`
+    <div class="tbl-wrap staff-tbl-wrap" style="margin-bottom:${staffList.some(s=>s.totalLoss>0)?'14px':'0'}">
+      <table>
+        <thead><tr>
+          <th>負責人員</th>
+          <th>出錯件數</th>
+          <th>一般客訴</th>
+          <th>經銷客訴</th>
+          <th>損失金額</th>
+          <th>未結案</th>
+          <th>結案率</th>
+          <th>明細</th>
+        </tr></thead>
+        <tbody>
+          ${displayList.map(s=>{
+            const isHighRisk = s.total>=3;
+            const rate=s.total>0?Math.round(s.resolved/s.total*100):0;
+            const rateColor=rate>=80?'var(--green)':rate>=50?'var(--yellow)':'var(--red)';
+            return `<tr style="background:${isHighRisk?'rgba(192,57,43,0.04)':''}">
+              <td>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:26px;height:26px;border-radius:50%;background:${s.total>=3?'var(--red)':'var(--forest)'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${esc(s.name[0])}</div>
+                  <div>
+                    <div style="font-weight:700;font-size:13px">${esc(s.name)}</div>
+                    ${s.total>=3?`<div style="font-size:10px;color:var(--red);font-weight:700;letter-spacing:.3px">⚠ 累計 ${s.total} 筆，需關注</div>`:''}
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="flex:1;height:8px;background:var(--lgrey);border-radius:4px;overflow:hidden;min-width:40px">
+                    <div style="height:100%;background:var(--orange);width:${s.total/maxTotal*100}%;border-radius:4px"></div>
+                  </div>
+                  <span style="font-family:'Bitter',serif;font-weight:700;font-size:15px;color:var(--orange)">${s.total}</span>
+                </div>
+              </td>
+              <td style="font-family:'Bitter',serif;font-weight:700;color:var(--red)">${s.complaint||'—'}</td>
+              <td style="font-family:'Bitter',serif;font-weight:700;color:var(--forest)">${s.dealer||'—'}</td>
+              <td style="font-family:'Bitter',serif;font-weight:700;color:${s.totalLoss?'var(--red)':'var(--muted)'}">
+                ${s.totalLoss?'NT$'+s.totalLoss.toLocaleString():'—'}
+              </td>
+              <td style="text-align:center">
+                ${s.pending>0
+                  ?`<span style="font-family:'Bitter',serif;font-weight:700;font-size:14px;color:var(--red)">${s.pending}</span>`
+                  :'<span style="color:var(--green);font-size:13px">✓</span>'}
+              </td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div style="flex:1;height:6px;background:var(--lgrey);border-radius:3px;overflow:hidden;min-width:44px">
+                    <div style="height:100%;background:${rateColor};width:${rate}%;border-radius:3px"></div>
+                  </div>
+                  <span style="font-size:11px;font-family:'Bitter',serif;font-weight:700;color:${rateColor};min-width:28px">${rate}%</span>
+                </div>
+              </td>
+              <td><button class="btn btn-xs btn-ghost" onclick="showStaffDetail('${esc(s.name)}')">明細</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    ${hasMore ? `
+    <div style="text-align:center;padding:10px 0">
+      <button onclick="toggleStaffAll()" style="
+        padding:6px 18px;border-radius:20px;border:1px solid var(--border);
+        background:white;color:var(--muted);font-size:11px;font-family:'Bitter',serif;
+        font-weight:700;cursor:pointer;letter-spacing:.5px;
+      ">${showAll ? '▲ 收合' : `▼ 顯示全部 ${staffList.length} 位人員`}</button>
+    </div>` : ''}
+    ${staffList.some(s=>s.totalLoss>0)?`
+    <div style="margin-top:2px">
+      <div class="chart-title" style="margin-bottom:8px">損失金額（補寄成本）</div>
+      ${staffList.filter(s=>s.totalLoss>0).map(s=>`
+        <div class="bar-row">
+          <div class="bar-label" style="min-width:64px">${esc(s.name)}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${s.totalLoss/maxLoss*100}%;background:var(--red)"></div></div>
+          <div class="bar-count" style="min-width:100px;text-align:right;color:var(--red)">NT$${s.totalLoss.toLocaleString()}</div>
+        </div>`).join('')}
+    </div>`:''}`;
+
+  window._staffComp=comp;
+  window._staffDeal=deal;
+}
+
+function buildResolveFooter(type,id,warn){
+  var closeBtn="<button class=\"btn btn-ghost\" onclick=\"closeMo('detail')\">關閉</button>";
+  var editBtn="<button class=\"btn btn-outline\" onclick=\"closeMo('detail');openEdit('"+type+"','"+id+"')\">編輯填寫</button>";
+  var resolveBtn="<button class=\"btn btn-resolve\""+(warn?" disabled title=\"請先填寫負責人與改善方式\"":" ")+" onclick=\"resolve('"+type+"','"+id+"')\">標記已結案</button>";
+  return closeBtn+editBtn+resolveBtn;
+}
+
+function toggleStaffAll(){
+  const box=document.getElementById('ov-staff-stats');
+  if(!box) return;
+  box.dataset.showAll = box.dataset.showAll==='1'?'0':'1';
+  // re-render with stored data
+  const comp=window._staffComp||[];
+  const deal=window._staffDeal||[];
+  renderStaffStats(comp,deal);
+}
+
+function showStaffDetail(staffName){
+  const comp=window._staffComp||[];
+  const deal=window._staffDeal||[];
+  const items=[
+    ...comp.filter(c=>c.staff&&c.staff.trim()===staffName).map(c=>({...c,_type:'complaint',_label:'一般客訴',_loss:c.loss||0})),
+    ...deal.filter(d=>d.staff&&d.staff.trim()===staffName).map(d=>({...d,_type:'dealer',  _label:'經銷客訴',_loss:0,customer:d.dealer})),
+  ].sort((a,b)=>b.date.localeCompare(a.date));
+
+  const totalLoss=items.reduce((s,i)=>s+i._loss,0);
+  const pending=items.filter(i=>!i.resolved).length;
+
+  document.getElementById('det-title').textContent=`負責人明細｜${staffName}`;
+  document.getElementById('det-badges').innerHTML=[
+    `<span class="badge b-orange">${items.length} 件</span>`,
+    totalLoss?`<span class="badge b-red">損失 NT$${totalLoss.toLocaleString()}</span>`:'',
+    pending
+      ?`<span class="badge b-warn">未結案 ${pending} 件</span>`
+      :'<span class="badge b-green">全部結案</span>',
+  ].join(' ');
+
+  document.getElementById('det-body').innerHTML=`
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>日期</th><th>類型</th><th>問題原因</th><th>客戶/廠商</th><th>損失金額</th><th>狀態</th><th>操作</th>
+        </tr></thead>
+        <tbody>
+          ${items.map(item=>`<tr class="${item.resolved?'resolved':''}${!item.resolved&&hasWarn(item)?' warn-row':''}">
+            <td style="font-family:'Bitter',serif;white-space:nowrap">${item.date}</td>
+            <td>${badge(item._label,item._type==='complaint'?'b-red':'b-green')}</td>
+            <td>${bReason(item.reason)}</td>
+            <td style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.customer||'—')}</td>
+            <td style="font-family:'Bitter',serif;font-weight:700;color:${item._loss?'var(--red)':'var(--muted)'}">
+              ${item._loss?'NT$'+item._loss.toLocaleString():'—'}
+            </td>
+            <td>${bStatus(item.resolved)}</td>
+            <td>
+              <button class="btn btn-xs btn-ghost" onclick="showDetail('${item._type==='complaint'?'complaint':'dealer'}','${item.id}')">查看</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  document.getElementById('det-footer').innerHTML=`<button class="btn btn-ghost" onclick="closeMo('detail')">關閉</button>`;
+  document.getElementById('mo-detail').classList.add('open');
+}
+
+// ══════════════════════════════════════════
+// RENDER TABLES
+// ══════════════════════════════════════════
+function renderComplaints(){
+  const from=document.getElementById('c-from')?.value||'';
+  const to=document.getElementById('c-to')?.value||'';
+  let data=getD('complaints').filter(c=>inPeriod(c.date,from,to));
+  const plat=v('f-c-platform'),reason=v('f-c-reason'),cat=v('f-c-category'),
+        status=v('f-c-status'),search=v('f-c-search').toLowerCase();
+  if(plat) data=data.filter(c=>c.platform===plat);
+  if(reason) data=data.filter(c=>c.reason.includes(reason));
+  if(cat) data=data.filter(c=>c.category.includes(cat));
+  if(status==='pending') data=data.filter(c=>!c.resolved);
+  if(status==='resolved') data=data.filter(c=>c.resolved);
+  if(status==='no_staff') data=data.filter(c=>!c.staff||c.staff==='-');
+  if(status==='no_improve') data=data.filter(c=>!c.improvement||c.improvement==='-'||c.improvement==='nan');
+  if(search) data=data.filter(c=>[c.customer,c.order_id,c.product,c.description].some(x=>String(x).toLowerCase().includes(search)));
+  data=applySort(data,'complaints');
+  const total=data.reduce((s,c)=>s+(c.loss||0),0);
+  document.getElementById('c-count').textContent=`${data.length} 筆｜損失 ${money(total)}`;
+  const isMobile = window.innerWidth <= 768;
+  document.getElementById('c-tbody').innerHTML=data.length
+    ? data.map(c=>`<tr class="${c.resolved?'resolved':''}${hasWarn(c)&&!c.resolved?' warn-row':''}">
+        <td style="font-family:'Bitter',serif;white-space:nowrap">${c.date}</td>
+        <td>${badge(c.platform||'—',c.platform==='蝦皮'?'b-orange':c.platform==='官網'?'b-green':'b-grey')}</td>
+        <td>${bCat(c.category)}</td>
+        <td>${bReason(c.reason)}</td>
+        <td style="max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.customer)}">${esc(c.customer)}</td>
+        <td style="font-size:10px;font-family:'Bitter',serif;color:var(--muted)">${esc(c.order_id||'').slice(0,16)}</td>
+        <td style="font-family:'Bitter',serif;font-weight:700;color:${c.loss?'var(--red)':'var(--muted)'}">${c.loss?'NT$'+c.loss.toLocaleString():'—'}</td>
+        <td>${c.staff&&c.staff!=='-'?esc(c.staff):badge('未填','b-warn')}</td>
+        <td>${c.improvement&&c.improvement!=='-'&&c.improvement!=='nan'?'<span style="color:var(--green)">✓</span>':badge('未填','b-warn')}</td>
+        <td>${bStatus(c.resolved)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-xs btn-ghost" onclick="showDetail('complaint','${c.id}')">詳情</button>
+          <button class="btn btn-xs btn-outline" onclick="openEdit('complaint','${c.id}')">編輯</button>
+        </td>
+      </tr>`).join('')
+    : '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:20px">此篩選無資料</td></tr>';
+}
+
+function renderReturns(){
+  const from=document.getElementById('r-from')?.value||'';
+  const to=document.getElementById('r-to')?.value||'';
+  let data=getD('returns').filter(r=>inPeriod(r.date,from,to));
+  const ch=v('f-r-channel'),st=v('f-r-status'),sr=v('f-r-search').toLowerCase();
+  if(ch) data=data.filter(r=>r.channel===ch);
+  if(st==='reshiped') data=data.filter(r=>r.reshiped);
+  if(st==='pending') data=data.filter(r=>!r.reshiped);
+  if(sr) data=data.filter(r=>[r.customer,r.order_id,r.product].some(x=>String(x).toLowerCase().includes(sr)));
+  data=applySort(data,'returns');
+  const total=data.reduce((s,r)=>s+(r.amount||0),0);
+  document.getElementById('r-count').textContent=`${data.length} 筆｜合計 ${money(total)}`;
+  document.getElementById('r-tbody').innerHTML=data.length
+    ? data.map(r=>`<tr>
+        <td style="font-family:'Bitter',serif;white-space:nowrap">${r.date}</td>
+        <td>${badge(r.channel||'—',r.channel==='蝦皮'?'b-orange':'b-green')}</td>
+        <td style="max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.customer)}</td>
+        <td>${badge(r.reason||'—','b-orange')}</td>
+        <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px" title="${esc(r.product)}">${nl2sp(esc(r.product))}</td>
+        <td style="font-family:'Bitter',serif;font-weight:700;color:var(--orange)">${money(r.amount)}</td>
+        <td>${r.reshiped?badge('已補寄','b-green'):badge('未補寄','b-red')}</td>
+        <td style="font-family:'Bitter',serif">${r.repurchase_amount?money(r.repurchase_amount):'—'}</td>
+        <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--muted)">${esc(r.contact_log||'')}</td>
+        <td><button class="btn btn-xs btn-ghost" onclick="showDetail('return','${r.id}')">詳情</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">此篩選無資料</td></tr>';
+}
+
+function renderPayments(){
+  const from=document.getElementById('p-from')?.value||'';
+  const to=document.getElementById('p-to')?.value||'';
+  let data=getD('payment_fails').filter(p=>inPeriod(p.date,from,to));
+  const st=v('f-p-status');
+  if(st==='repurchased') data=data.filter(p=>p.repurchased);
+  if(st==='pending') data=data.filter(p=>!p.repurchased);
+  data=applySort(data,'payment_fails');
+  document.getElementById('p-count').textContent=`${data.length} 筆｜${money(data.reduce((s,p)=>s+(p.amount||0),0))}`;
+  document.getElementById('p-tbody').innerHTML=data.length
+    ? data.map(p=>`<tr>
+        <td style="font-family:'Bitter',serif;white-space:nowrap">${p.date}</td>
+        <td>${badge(p.platform||'—','b-green')}</td>
+        <td style="font-size:10px;color:var(--muted)">${esc(p.fail_reason)}</td>
+        <td>${esc(p.customer)}</td>
+        <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px" title="${esc(p.product)}">${nl2sp(esc(p.product))}</td>
+        <td style="font-family:'Bitter',serif;font-weight:700;color:var(--purple)">${money(p.amount)}</td>
+        <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--muted)">${esc(p.contact_log||'')}</td>
+        <td>${p.repurchased?badge('已回購','b-green'):badge('未回購','b-red')}</td>
+        <td style="font-family:'Bitter',serif">${p.repurchase_amount?money(p.repurchase_amount):'—'}</td>
+        <td><button class="btn btn-xs btn-ghost" onclick="showDetail('payment','${p.id}')">詳情</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">此篩選無資料</td></tr>';
+}
+
+function renderDealers(){
+  const from=document.getElementById('d-from')?.value||'';
+  const to=document.getElementById('d-to')?.value||'';
+  let data=getD('dealer_complaints').filter(x=>inPeriod(x.date,from,to));
+  const st=v('f-d-status'),cat=v('f-d-cat'),sr=v('f-d-search').toLowerCase();
+  if(st==='resolved') data=data.filter(d=>d.resolved);
+  if(st==='pending')  data=data.filter(d=>!d.resolved);
+  if(st==='no_staff') data=data.filter(d=>!d.staff||d.staff==='-');
+  if(st==='no_improve') data=data.filter(d=>!d.improvement||d.improvement==='-');
+  if(cat) data=data.filter(d=>d.category===cat);
+  if(sr)  data=data.filter(d=>[d.dealer,d.description,d.reason].some(x=>String(x).toLowerCase().includes(sr)));
+  data=applySort(data,'dealer_complaints');
+  document.getElementById('d-count').textContent=`${data.length} 筆`;
+  document.getElementById('d-tbody').innerHTML=data.length
+    ? data.map(d=>`<tr class="${d.resolved?'resolved':''}${hasWarn(d)&&!d.resolved?' warn-row':''}">
+        <td style="font-family:'Bitter',serif;white-space:nowrap">${d.date}</td>
+        <td style="font-weight:700">${esc(d.dealer)}</td>
+        <td>${bCat(d.category)}</td>
+        <td style="font-size:10px">${esc(d.reason)}</td>
+        <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px" title="${esc(d.description)}">${esc(d.description)}</td>
+        <td>${d.staff&&d.staff!=='-'?esc(d.staff):badge('未填','b-warn')}</td>
+        <td>${d.improvement&&d.improvement!=='-'?'<span style="color:var(--green)">✓</span>':badge('未填','b-warn')}</td>
+        <td>${bStatus(d.resolved)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-xs btn-ghost" onclick="showDetail('dealer','${d.id}')">詳情</button>
+          <button class="btn btn-xs btn-outline" onclick="openEdit('dealer','${d.id}')">編輯</button>
+        </td>
+      </tr>`).join('')
+    : '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">此篩選無資料</td></tr>';
+}
+
+// ══════════════════════════════════════════
+// DETAIL MODAL
+// ══════════════════════════════════════════
+function showDetail(type,id){
+  const keyMap={complaint:'complaints',return:'returns',payment:'payment_fails',dealer:'dealer_complaints'};
+  const item=getD(keyMap[type]).find(x=>x.id===id); if(!item) return;
+  let title='',badges=[],body='',footer='';
+
+  const df=(label,val,cls='',full=false)=>`<div class="df${full?' df-full':''}" ><label>${label}</label><div class="df-val${cls?' '+cls:''}">${esc(String(val||'—')).split('\n').join('<br>')}</div></div>`;
+
+  if(type==='complaint'){
+    title=`客訴補寄｜${item.customer}`;
+    badges=[bReason(item.reason),bCat(item.category),badge(item.platform,'b-green'),bStatus(item.resolved)];
+    if(hasWarn(item)&&!item.resolved) badges.push(bWarn(item));
+    body=`<div class="df-grid">${df('日期',item.date)}${df('平台',item.platform)}
+      ${df('問題分類',item.category)}${df('問題原因',item.reason)}
+      ${df('訂單編號',item.order_id,'mono')}${df('損失金額',money(item.loss),'hl')}
+      ${df('補寄品項',item.product,'',true)}${df('說明',item.description,'',true)}
+      ${df('補寄追蹤號',item.tracking)}${df('配送狀態',item.delivery)}
+      ${df('寄出日期',item.ship_date)}${df('負責人員',item.staff||'⚠️ 未填寫','',false)}
+    </div>`;
+    if(item.improvement&&item.improvement!=='-'&&item.improvement!=='nan')
+      body+=`<div style="font-size:9px;font-family:'Bitter',serif;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:10px 0 5px">改善方式</div><div class="improve-box">${esc(item.improvement)}</div>`;
+    else
+      body+=`<div class="warn-box"><span>⚠️</span><span>尚未填寫負責人員或改善方式，請點「編輯」填入後才能標記已結案</span></div>`;
+    // 照片預覽
+    if(item.photos && item.photos.length){
+      body+=`<div style="font-size:9px;font-family:'Bitter',serif;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:12px 0 6px">附件照片（${item.photos.length}張）</div>`;
+      body+=renderPhotoPreview(item.photos);
+    }
+    if(!item.resolved)
+      footer=buildResolveFooter('complaint',id,hasWarn(item));
+    else
+      footer=`<button class="btn btn-ghost" onclick="closeMo('detail')">關閉</button>`;
+  } else if(type==='return'){
+    title=`退貨｜${item.customer}`;
+    badges=[badge(item.channel,'b-orange'),badge(item.reason,'b-yellow'),item.reshiped?badge('已補寄','b-green'):badge('未補寄','b-red')];
+    body=`<div class="df-grid">${df('日期',item.date)}${df('通路',item.channel)}
+      ${df('訂單編號',item.order_id,'mono')}${df('退貨金額',money(item.amount),'hl')}
+      ${df('回購金額',money(item.repurchase_amount))}${df('已補寄',item.reshiped?'是':'否')}
+      ${df('品項',item.product,'',true)}${df('聯繫記錄',item.contact_log,'',true)}
+    </div>`;
+    footer=`<button class="btn btn-ghost" onclick="closeMo('detail')">關閉</button>`;
+  } else if(type==='payment'){
+    title=`付款失敗｜${item.customer}`;
+    badges=[badge(item.fail_reason,'b-purple'),item.repurchased?badge('已回購','b-green'):badge('未回購','b-red')];
+    body=`<div class="df-grid">${df('日期',item.date)}${df('平台',item.platform)}
+      ${df('訂單編號',item.order_id,'mono')}${df('金額',money(item.amount),'hl')}
+      ${df('品項',item.product,'',true)}${df('聯繫記錄',item.contact_log,'',true)}
+      ${df('回購日期',item.repurchase_date)}${df('回購金額',money(item.repurchase_amount))}
+      ${df('錯誤訊息',item.error_note,'',true)}
+    </div>`;
+    footer=`<button class="btn btn-ghost" onclick="closeMo('detail')">關閉</button>`;
+  } else if(type==='dealer'){
+    title=`經銷客訴｜${item.dealer}`;
+    badges=[bCat(item.category),badge(item.reason,'b-yellow'),bStatus(item.resolved)];
+    if(hasWarn(item)&&!item.resolved) badges.push(bWarn(item));
+    body=`<div class="df-grid">${df('日期',item.date)}${df('廠商',item.dealer)}
+      ${df('問題分類',item.category)}${df('問題原因',item.reason)}
+      ${df('說明',item.description,'',true)}${df('補寄品項',item.product,'',true)}
+      ${df('備註',item.note,'',true)}
+      ${df('寄出日期',item.ship_date)}${df('追蹤號',item.tracking)}
+      ${df('負責人員',item.staff||'⚠️ 未填寫')}${df('','','')}
+    </div>`;
+    if(item.improvement&&item.improvement!=='-')
+      body+=`<div style="font-size:9px;font-family:'Bitter',serif;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:10px 0 5px">改善方式</div><div class="improve-box">${esc(item.improvement)}</div>`;
+    else
+      body+=`<div class="warn-box"><span>⚠️</span><span>尚未填寫負責人員或改善方式，請點「編輯」填入</span></div>`;
+    if(!item.resolved)
+      footer=buildResolveFooter('dealer',id,hasWarn(item));
+    else
+      footer=`<button class="btn btn-ghost" onclick="closeMo('detail')">關閉</button>`;
+  }
+
+  document.getElementById('det-title').textContent=title;
+  document.getElementById('det-badges').innerHTML=badges.join(' ');
+  document.getElementById('det-body').innerHTML=body;
+  document.getElementById('det-footer').innerHTML=footer;
+  document.getElementById('mo-detail').classList.add('open');
+}
+
+function resolve(type,id){
+  const keyMap={complaint:'complaints',dealer:'dealer_complaints'};
+  const key=keyMap[type]; const data=getD(key);
+  const item=data.find(x=>x.id===id);
+  if(!item) return;
+  if(hasWarn(item)){ toast('請先填寫負責人員與改善方式才能結案','error'); return; }
+  if(!confirm('確認標記為已結案？')) return;
+  item.resolved=true;
+  setD(key,data);
+  pushToSheets(key,item);
+  closeMo('detail');
+  toast('✓ 已標記為結案');
+  renderAll();
+  if(type==='complaint') renderComplaints();
+  else renderDealers();
+}
+
+// ══════════════════════════════════════════
+// EDIT MODAL（必填：負責人 + 改善方式）
+// ══════════════════════════════════════════
+let editCtx={type:'',id:''};
+
+function openEdit(type,id){
+  const keyMap={complaint:'complaints',dealer:'dealer_complaints'};
+  const item=getD(keyMap[type]).find(x=>x.id===id); if(!item) return;
+  editCtx={type,id};
+  document.getElementById('edit-title').textContent=`編輯｜${item.customer||item.dealer||id}`;
+
+  const missingStaff=!item.staff||item.staff==='-';
+  const missingImprove=!item.improvement||item.improvement==='-'||item.improvement==='nan';
+
+  let notice='';
+  if(missingStaff||missingImprove){
+    const missingLoss2 = item.type==='general' && (!item.loss||item.loss<=0);
+  const missing=[missingLoss2&&'客訴訂單金額',missingStaff&&'負責人員',missingImprove&&'改善方式'].filter(Boolean).join('、');
+    notice=`<div class="required-notice"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>必填欄位尚未填寫：<strong>${missing}</strong>，填寫後才可標記已結案</div>`;
+  }
+
+  const missingLoss = item.type==='general' && (!item.loss||item.loss<=0);
+  document.getElementById('edit-body').innerHTML=notice+`
+    <div class="fg">
+      <div class="fl"><label>客訴訂單金額 <span style="color:var(--red)">*必填</span></label>
+        <input class="fi${missingLoss?' required-empty':''}" id="e-loss" type="number" min="0"
+          value="${item.loss||''}" placeholder="補寄成本 / 訂單金額" oninput="this.classList.remove('required-empty')"></div>
+      <div class="fl"><label>負責人員 <span style="color:var(--red)">*必填</span></label>
+        <input class="fi${missingStaff?' required-empty':''}" id="e-staff" value="${esc(item.staff||'')}" placeholder="填入負責人員姓名" oninput="this.classList.remove('required-empty')"></div>
+      <div class="fl"><label>寄出日期</label>
+        <input class="fi" id="e-ship" type="date" value="${item.ship_date||''}"></div>
+      <div class="fl fg-full"><label>補寄追蹤號</label>
+        <input class="fi" id="e-tracking" value="${esc(item.tracking||'')}"></div>
+      <div class="fl"><label>配送狀態</label>
+        <select class="fs" id="e-delivery">
+          ${['—','順利送達','配送中','配送失敗','退件'].map(o=>`<option${(item.delivery||'')==o?' selected':''}>${o}</option>`).join('')}
+        </select></div>
+      <div class="fl fg-full"><label>改善方式 / 錯誤原因 <span style="color:var(--red)">*必填</span></label>
+        <textarea class="fta${missingImprove?' required-empty':''}" id="e-improve" placeholder="填入問題原因分析與改善措施" oninput="this.classList.remove('required-empty')">${esc(item.improvement||'')}</textarea></div>
+      <div class="fl fg-full"><label>備註</label>
+        <input class="fi" id="e-note" value="${esc(item.note||'')}"></div>
+    </div>`;
+  document.getElementById('mo-edit').classList.add('open');
+}
+
+function saveEdit(){
+  const {type,id}=editCtx;
+  const keyMap={complaint:'complaints',dealer:'dealer_complaints'};
+  const key=keyMap[type]; const data=getD(key);
+  const item=data.find(x=>x.id===id); if(!item) return;
+  const staff=document.getElementById('e-staff')?.value.trim()||'';
+  const improve=document.getElementById('e-improve')?.value.trim()||'';
+  // Validate
+  const lossEdit=parseFloat(document.getElementById('e-loss')?.value)||0;
+  let ok=true;
+  const isGeneral=item.type==='general';
+  if(isGeneral&&lossEdit<=0){ document.getElementById('e-loss')?.classList.add('required-empty'); ok=false; }
+  if(!staff){ document.getElementById('e-staff').classList.add('required-empty'); ok=false; }
+  if(!improve){ document.getElementById('e-improve').classList.add('required-empty'); ok=false; }
+  if(!ok){ toast('請填寫標 * 的必填欄位','error'); return; }
+  if(isGeneral&&lossEdit>0) item.loss=lossEdit;
+  item.staff=staff; item.improvement=improve;
+  item.ship_date=document.getElementById('e-ship')?.value||item.ship_date;
+  item.tracking=document.getElementById('e-tracking')?.value||item.tracking;
+  const deliv=document.getElementById('e-delivery')?.value||'';
+  if(deliv!=='—') item.delivery=deliv;
+  item.note=document.getElementById('e-note')?.value||item.note;
+  setD(key,data);
+  pushToSheets(key,item);
+  closeMo('edit');
+  toast('✓ 已儲存，可以標記結案了');
+  renderAll();
+  if(type==='complaint') renderComplaints();
+  else renderDealers();
+}
+
+// ══════════════════════════════════════════
+// ADD MODAL
+// ══════════════════════════════════════════
+let addType='';
+function openAdd(type){
+  addType=type;
+  const titles={complaint:'新增客訴補寄',return:'新增退貨',payment:'新增付款失敗',dealer:'新增經銷客訴'};
+  document.getElementById('add-title').textContent=titles[type];
+  document.getElementById('add-body').innerHTML=getAddForm(type);
+  document.getElementById('mo-add').classList.add('open');
+  // 照片上傳只在客訴表單初始化
+  if(type==='complaint'){
+    requestAnimationFrame(()=>initPhotoUpload('photo-upload-container'));
+  }
+}
+
+function getAddForm(type){
+  const today=new Date().toISOString().slice(0,10);
+  if(type==='complaint') return `
+    <div class="fg">
+      <div class="fl"><label>日期</label><input class="fi" id="a-date" type="date" value="${today}"></div>
+      <div class="fl"><label>平台</label><select class="fs" id="a-platform"><option>官網</option><option>蝦皮</option><option>1 shop</option><option>其他</option></select></div>
+      <div class="fl"><label>問題分類</label><select class="fs" id="a-category"><option>出貨</option><option>包裝</option><option>生產</option><option>客服</option><option>行銷</option></select></div>
+      <div class="fl"><label>問題原因</label><select class="fs" id="a-reason"><option>少寄/寄錯</option><option>盒損/凹損</option><option>異物/鳥屎</option><option>商品不完整</option><option>效期錯誤</option><option>漏單未出</option><option>已延後但仍出</option><option>重複寄送</option><option>其他</option></select></div>
+      <div class="fl"><label>客戶名稱</label><input class="fi" id="a-customer" placeholder="客戶姓名或帳號"></div>
+      <div class="fl"><label>訂單編號</label><input class="fi" id="a-order_id"></div>
+      <div class="fl fg-full"><label>補寄品項</label><textarea class="fta" id="a-product" style="min-height:56px"></textarea></div>
+      <div class="fl fg-full"><label>說明</label><input class="fi" id="a-description"></div>
+      <div class="fl"><label>客訴訂單金額 <span style="color:var(--red)">*</span></label><input class="fi" id="a-loss" type="number" min="0" placeholder="必填，補寄成本/訂單金額"></div>
+      <div class="fl"><label>負責人員 <span style="color:var(--red)">*</span></label><input class="fi" id="a-staff" placeholder="必填"></div>
+      <div class="fl fg-full"><label>改善方式 <span style="color:var(--red)">*</span></label><textarea class="fta" id="a-improvement" placeholder="必填"></textarea></div>
+      <div class="fl fg-full">
+        <label>附件照片 <span style="font-size:10px;color:var(--muted);font-weight:400">（最多3張，上傳到 Google Drive）</span></label>
+        <div id="photo-upload-container" style="margin-top:4px"></div>
+      </div>
+    </div>`;
+  if(type==='return') return `
+    <div class="fg">
+      <div class="fl"><label>日期</label><input class="fi" id="a-date" type="date" value="${today}"></div>
+      <div class="fl"><label>通路</label><select class="fs" id="a-channel"><option>官網</option><option>蝦皮</option></select></div>
+      <div class="fl"><label>客戶名稱</label><input class="fi" id="a-customer"></div>
+      <div class="fl"><label>訂單編號</label><input class="fi" id="a-order_id"></div>
+      <div class="fl"><label>退貨原因</label><input class="fi" id="a-reason" value="超商未取貨"></div>
+      <div class="fl"><label>退貨金額</label><input class="fi" id="a-amount" type="number" min="0" value="0"></div>
+      <div class="fl fg-full"><label>品項</label><textarea class="fta" id="a-product" style="min-height:56px"></textarea></div>
+      <div class="fl fg-full"><label>聯繫記錄</label><textarea class="fta" id="a-contact_log" style="min-height:56px"></textarea></div>
+      <div class="fl"><label>已補寄</label><select class="fs" id="a-reshiped"><option value="false">否</option><option value="true">是</option></select></div>
+    </div>`;
+  if(type==='payment') return `
+    <div class="fg">
+      <div class="fl"><label>日期</label><input class="fi" id="a-date" type="date" value="${today}"></div>
+      <div class="fl"><label>平台</label><select class="fs" id="a-platform"><option>官網</option><option>蝦皮</option></select></div>
+      <div class="fl"><label>失敗原因</label><select class="fs" id="a-fail_reason"><option>超過付款時間</option><option>付款失敗</option><option>信用卡餘額不足</option><option>3D驗證失敗</option></select></div>
+      <div class="fl"><label>客戶名稱</label><input class="fi" id="a-customer"></div>
+      <div class="fl"><label>訂單編號</label><input class="fi" id="a-order_id"></div>
+      <div class="fl"><label>金額</label><input class="fi" id="a-amount" type="number" min="0" value="0"></div>
+      <div class="fl fg-full"><label>品項</label><textarea class="fta" id="a-product" style="min-height:56px"></textarea></div>
+      <div class="fl fg-full"><label>聯繫記錄</label><textarea class="fta" id="a-contact_log" style="min-height:56px"></textarea></div>
+    </div>`;
+  if(type==='dealer') return `
+    <div class="fg">
+      <div class="fl"><label>日期</label><input class="fi" id="a-date" type="date" value="${today}"></div>
+      <div class="fl"><label>廠商名稱</label><input class="fi" id="a-dealer"></div>
+      <div class="fl"><label>問題分類</label><select class="fs" id="a-category"><option>出貨</option><option>包裝</option><option>物流</option><option>其他</option></select></div>
+      <div class="fl"><label>問題原因</label><input class="fi" id="a-reason" placeholder="進貨異常/盒損/..."></div>
+      <div class="fl fg-full"><label>說明</label><textarea class="fta" id="a-description" style="min-height:56px"></textarea></div>
+      <div class="fl fg-full"><label>補寄品項</label><input class="fi" id="a-product"></div>
+      <div class="fl"><label>負責人員 <span style="color:var(--red)">*</span></label><input class="fi" id="a-staff" placeholder="必填"></div>
+      <div class="fl fg-full"><label>改善方式 <span style="color:var(--red)">*</span></label><textarea class="fta" id="a-improvement" placeholder="必填"></textarea></div>
+    </div>`;
+  return '';
+}
+
+function g(id){return document.getElementById(id)?.value||''}
+function gb(id){return document.getElementById(id)?.value==='true'}
+
+function saveAdd(){
+  const type=addType; if(!type) return;
+  const keyMap={complaint:'complaints',return:'returns',payment:'payment_fails',dealer:'dealer_complaints'};
+  const key=keyMap[type]; const data=getD(key); let item;
+  if(type==='complaint'){
+    const lossVal=parseFloat(g('a-loss'))||0;
+    if(!lossVal||lossVal<=0){ document.getElementById('a-loss').classList.add('required-empty'); toast('請填寫客訴訂單金額','error'); return; }
+    if(!g('a-staff')){ document.getElementById('a-staff').classList.add('required-empty'); toast('請填寫負責人員','error'); return; }
+    if(!g('a-improvement')){ document.getElementById('a-improvement').classList.add('required-empty'); toast('請填寫改善方式','error'); return; }
+    const photoUrls = getPhotoUrls();
+    item={id:'c_'+LS.id(),type:'general',date:g('a-date'),platform:g('a-platform'),
+      category:g('a-category'),reason:g('a-reason'),customer:g('a-customer'),
+      order_id:g('a-order_id'),product:g('a-product'),description:g('a-description'),
+      loss:parseFloat(g('a-loss'))||0,staff:g('a-staff'),improvement:g('a-improvement'),
+      photos: photoUrls,
+      resolved:false,ship_date:'',tracking:'',delivery:'未配送'};
+  } else if(type==='return'){
+    item={id:'r_'+LS.id(),type:'return',date:g('a-date'),channel:g('a-channel'),
+      customer:g('a-customer'),order_id:g('a-order_id'),reason:g('a-reason'),
+      product:g('a-product'),amount:parseFloat(g('a-amount'))||0,
+      reshiped:gb('a-reshiped'),contact_log:g('a-contact_log'),repurchase_amount:0};
+  } else if(type==='payment'){
+    item={id:'p_'+LS.id(),type:'payment_fail',date:g('a-date'),platform:g('a-platform'),
+      fail_reason:g('a-fail_reason'),customer:g('a-customer'),order_id:g('a-order_id'),
+      product:g('a-product'),amount:parseFloat(g('a-amount'))||0,
+      repurchased:false,contact_log:g('a-contact_log'),repurchase_amount:0,error_note:''};
+  } else if(type==='dealer'){
+    if(!g('a-staff')){ document.getElementById('a-staff').classList.add('required-empty'); toast('請填寫負責人員','error'); return; }
+    if(!g('a-improvement')){ document.getElementById('a-improvement').classList.add('required-empty'); toast('請填寫改善方式','error'); return; }
+    item={id:'d_'+LS.id(),type:'dealer',date:g('a-date'),dealer:g('a-dealer'),
+      category:g('a-category'),reason:g('a-reason'),description:g('a-description'),
+      product:g('a-product'),staff:g('a-staff'),improvement:g('a-improvement'),
+      resolved:false,ship_date:'',tracking:'',note:''};
+  }
+  if(!item) return;
+  data.push(item); setD(key,data);
+  pushToSheets(key,item,'upsert');
+  closeMo('add'); toast('✓ 已新增並同步至 Sheets');
+  renderAll();
+  const m={complaints:renderComplaints,returns:renderReturns,payment_fails:renderPayments,dealer_complaints:renderDealers};
+  if(m[key]) m[key]();
+}
+
+// ══════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════
+function renderSettings(){
+  const cfg=getCfg();
+  const su=document.getElementById('cfg-script-url');
+  const si=document.getElementById('cfg-sheet-id');
+  if(su&&cfg.scriptUrl) su.value=cfg.scriptUrl;
+  if(si&&cfg.sheetId)   si.value=cfg.sheetId;
+  // Apps Script code
+  const code=`const SHEET_MAP = {
+  complaints:        '客人客訴補寄追蹤',
+  returns:           '訂單退貨',
+  payment_fails:     '付款失敗追蹤',
+  dealer_complaints: '經銷客訴補寄'
+};
+
+function doGet(e) {
+  const action = e.parameter.action;
+  if (action === 'ping') return res({ok: true});
+
+  const sheetId = e.parameter.sheetId || 'YOUR_SHEET_ID';
+  const ss = SpreadsheetApp.openById(sheetId);
+  const result = {};
+
+  Object.entries(SHEET_MAP).forEach(([key, name]) => {
+    const sh = ss.getSheetByName(name);
+    if (!sh) { result[key] = []; return; }
+    const rows = sh.getDataRange().getValues();
+    const headers = rows[0];
+    result[key] = rows.slice(1)
+      .filter(r => r.some(x => x !== ''))
+      .map(r => {
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = r[i]);
+        return obj;
+      });
+  });
+  return res(result);
+}
+
+function doPost(e) {
+  const p = JSON.parse(e.postData.contents);
+  const sheetId = p.sheetId || 'YOUR_SHEET_ID';
+
+  // 照片上傳：把 base64 存到 Google Drive
+  if (p.action === 'upload_photo') {
+    try {
+      const folder = DriveApp.getFoldersByName('森林麵食_客訴照片').hasNext()
+        ? DriveApp.getFoldersByName('森林麵食_客訴照片').next()
+        : DriveApp.createFolder('森林麵食_客訴照片');
+      const blob = Utilities.newBlob(
+        Utilities.base64Decode(p.base64),
+        p.mimeType,
+        p.filename
+      );
+      const file = folder.createFile(blob);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      const fileId = file.getId();
+      return res({
+        ok: true,
+        fileId,
+        viewUrl:  'https://drive.google.com/file/d/' + fileId + '/view',
+        thumbUrl: 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w400'
+      });
+    } catch(err) {
+      return res({error: err.message});
+    }
+  }
+
+  // 一般資料寫入
+  const ss = SpreadsheetApp.openById(sheetId);
+  const sheetName = SHEET_MAP[p.key];
+  if (!sheetName) return res({error: 'Unknown key: ' + p.key});
+  const sh = ss.getSheetByName(sheetName);
+  if (!sh) return res({error: 'Sheet not found: ' + sheetName});
+
+  const data = sh.getDataRange().getValues();
+  const headers = data[0];
+  const idCol = headers.indexOf('id');
+
+  if (idCol < 0) {
+    sh.appendRow(headers.map(h => p.item[h] !== undefined ? p.item[h] : ''));
+    return res({ok: true, action: 'append'});
+  }
+  const rowIdx = data.findIndex((r, i) => i > 0 && r[idCol] === p.item.id);
+  if (rowIdx < 0) {
+    sh.appendRow(headers.map(h => p.item[h] !== undefined ? p.item[h] : ''));
+    return res({ok: true, action: 'insert'});
+  } else {
+    sh.getRange(rowIdx + 1, 1, 1, headers.length)
+      .setValues([headers.map(h => p.item[h] !== undefined ? p.item[h] : '')]);
+    return res({ok: true, action: 'update'});
+  }
+}
+
+function res(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+  const el=document.getElementById('script-code');
+  if(el) el.textContent=code;
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+function v(id){return document.getElementById(id)?.value||''}
+function nl2sp(s){return String(s||'').split('\n').join(' ')}
+document.querySelectorAll('.mo').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}));
+setPeriod('all',document.querySelector('#ov-period .period-preset'));
+renderOverview();
+
+// 每次開啟自動同步（若已設定 Script URL）
+(async()=>{
+  const cfg=getCfg();
+  if(cfg.scriptUrl){
+    const t=document.getElementById('sync-time');
+    if(t) t.textContent='同步中...';
+    await syncSheets();
+  } else {
+    // 未設定：純用 localStorage + seed data，顯示離線提示
+    setSyncStatus('error');
+    document.getElementById('sync-time').textContent='未設定 Sheets';
+  }
+})();
+</script>
+</body>
+</html>
