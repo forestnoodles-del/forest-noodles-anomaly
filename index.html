@@ -932,18 +932,20 @@ function bWarn(item){
 }
 
 function hasWarn(item){
-  const noStaff      = !item.staff || item.staff==='-' || item.staff.trim()==='';
-  const noImprove    = !item.improvement || item.improvement==='-' || item.improvement==='nan' || item.improvement.trim()==='';
-  // 一般客訴和經銷客訴都要求填改善方式和負責人
-  // 一般客訴額外要求：損失金額（客訴訂單金額）必填
-  const noLoss       = item.type==='general' && (item.loss===undefined || item.loss===null || item.loss===0 || item.loss==='');
-  return noStaff || noImprove || noLoss;
+  const noStaff   = !item.staff   || item.staff.trim()===''   || item.staff==='-';
+  const noImprove = !item.improvement || item.improvement.trim()==='' || item.improvement==='-' || item.improvement==='nan';
+  // 結案前必須填：負責人員 + 改善方式
+  // 客訴訂單金額：若未填則提醒但不擋結案（可能真的0損失）
+  return noStaff || noImprove;
 }
 function warnReasons(item){
   const missing=[];
-  if(!item.staff||item.staff==='-'||item.staff.trim()==='') missing.push('負責人員');
-  if(!item.improvement||item.improvement==='-'||item.improvement==='nan'||item.improvement.trim()==='') missing.push('改善方式');
-  if(item.type==='general'&&(item.loss===undefined||item.loss===null||item.loss===0||item.loss==='')) missing.push('客訴訂單金額');
+  if(!item.staff||item.staff.trim()===''||item.staff==='-') missing.push('負責人員');
+  if(!item.improvement||item.improvement.trim()===''||item.improvement==='-'||item.improvement==='nan') missing.push('改善方式');
+  // 軟提醒：金額未填
+  if(item.type==='general'&&(item.loss===undefined||item.loss===null||item.loss===''||item.loss===0)){
+    missing.push('客訴金額（建議填入）');
+  }
   return missing;
 }
 
@@ -1339,7 +1341,7 @@ function renderComplaints(){
         <td>${bReason(c.reason)}</td>
         <td style="max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.customer)}">${esc(c.customer)}</td>
         <td style="font-size:10px;font-family:'Bitter',serif;color:var(--muted)">${esc(c.order_id||'').slice(0,16)}</td>
-        <td style="font-family:'Bitter',serif;font-weight:700;color:${c.loss?'var(--red)':'var(--muted)'}">${c.loss?'NT$'+c.loss.toLocaleString():'—'}</td>
+        <td style="font-family:'Bitter',serif;font-weight:700;color:${c.loss&&c.loss>0?'var(--red)':'var(--muted)'}">${c.loss&&c.loss>0?'NT$'+Number(c.loss).toLocaleString():'─'}</td>
         <td>${c.staff&&c.staff!=='-'?esc(c.staff):badge('未填','b-warn')}</td>
         <td>${c.improvement&&c.improvement!=='-'&&c.improvement!=='nan'?'<span style="color:var(--green)">✓</span>':badge('未填','b-warn')}</td>
         <td>${bStatus(c.resolved)}</td>
@@ -1550,16 +1552,16 @@ function openEdit(type,id){
   let notice='';
   if(missingStaff||missingImprove){
     const missingLoss2 = item.type==='general' && (!item.loss||item.loss<=0);
-  const missing=[missingLoss2&&'客訴訂單金額',missingStaff&&'負責人員',missingImprove&&'改善方式'].filter(Boolean).join('、');
+  const missing=[missingStaff&&'負責人員',missingImprove&&'改善方式',missingLoss2&&'客訴金額（建議補填）'].filter(Boolean).join('、');
     notice=`<div class="required-notice"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>必填欄位尚未填寫：<strong>${missing}</strong>，填寫後才可標記已結案</div>`;
   }
 
   const missingLoss = item.type==='general' && (!item.loss||item.loss<=0);
   document.getElementById('edit-body').innerHTML=notice+`
     <div class="fg">
-      <div class="fl"><label>客訴訂單金額 <span style="color:var(--red)">*必填</span></label>
-        <input class="fi${missingLoss?' required-empty':''}" id="e-loss" type="number" min="0"
-          value="${item.loss||''}" placeholder="補寄成本 / 訂單金額" oninput="this.classList.remove('required-empty')"></div>
+      <div class="fl"><label>客訴訂單金額</label>
+        <input class="fi" id="e-loss" type="number" min="0"
+          value="${item.loss||''}" placeholder="補寄成本 / 客訴訂單金額"></div>
       <div class="fl"><label>負責人員 <span style="color:var(--red)">*必填</span></label>
         <input class="fi${missingStaff?' required-empty':''}" id="e-staff" value="${esc(item.staff||'')}" placeholder="填入負責人員姓名" oninput="this.classList.remove('required-empty')"></div>
       <div class="fl"><label>寄出日期</label>
@@ -1588,12 +1590,10 @@ function saveEdit(){
   // Validate
   const lossEdit=parseFloat(document.getElementById('e-loss')?.value)||0;
   let ok=true;
-  const isGeneral=item.type==='general';
-  if(isGeneral&&lossEdit<=0){ document.getElementById('e-loss')?.classList.add('required-empty'); ok=false; }
   if(!staff){ document.getElementById('e-staff').classList.add('required-empty'); ok=false; }
   if(!improve){ document.getElementById('e-improve').classList.add('required-empty'); ok=false; }
-  if(!ok){ toast('請填寫標 * 的必填欄位','error'); return; }
-  if(isGeneral&&lossEdit>0) item.loss=lossEdit;
+  if(!ok){ toast('請填寫負責人員與改善方式','error'); return; }
+  if(lossEdit>0) item.loss=lossEdit;
   item.staff=staff; item.improvement=improve;
   item.ship_date=document.getElementById('e-ship')?.value||item.ship_date;
   item.tracking=document.getElementById('e-tracking')?.value||item.tracking;
@@ -1628,6 +1628,10 @@ function openAdd(type){
 function getAddForm(type){
   const today=new Date().toISOString().slice(0,10);
   if(type==='complaint') return `
+    <div style="padding:8px 12px;background:#fffbf0;border:1px solid var(--noodle);border-radius:6px;font-size:12px;color:#7a5500;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span>先填寫基本資料即可新增。<strong>客訴金額、負責人員、改善方式</strong>可事後由負責人登入補填，填完才能標記結案。</span>
+    </div>
     <div class="fg">
       <div class="fl"><label>日期</label><input class="fi" id="a-date" type="date" value="${today}"></div>
       <div class="fl"><label>平台</label><select class="fs" id="a-platform"><option>官網</option><option>蝦皮</option><option>1 shop</option><option>其他</option></select></div>
@@ -1637,9 +1641,9 @@ function getAddForm(type){
       <div class="fl"><label>訂單編號</label><input class="fi" id="a-order_id"></div>
       <div class="fl fg-full"><label>補寄品項</label><textarea class="fta" id="a-product" style="min-height:56px"></textarea></div>
       <div class="fl fg-full"><label>說明</label><input class="fi" id="a-description"></div>
-      <div class="fl"><label>客訴訂單金額 <span style="color:var(--red)">*</span></label><input class="fi" id="a-loss" type="number" min="0" placeholder="必填，補寄成本/訂單金額"></div>
-      <div class="fl"><label>負責人員 <span style="color:var(--red)">*</span></label><input class="fi" id="a-staff" placeholder="必填"></div>
-      <div class="fl fg-full"><label>改善方式 <span style="color:var(--red)">*</span></label><textarea class="fta" id="a-improvement" placeholder="必填"></textarea></div>
+      <div class="fl"><label>客訴訂單金額 <span style="font-size:10px;color:var(--muted);font-weight:400">（事後可補填）</span></label><input class="fi" id="a-loss" type="number" min="0" placeholder="補寄成本 / 客訴訂單金額"></div>
+      <div class="fl"><label>負責人員 <span style="font-size:10px;color:var(--muted);font-weight:400">（事後可補填）</span></label><input class="fi" id="a-staff" placeholder="主管指派後填入"></div>
+      <div class="fl fg-full"><label>改善方式 <span style="font-size:10px;color:var(--muted);font-weight:400">（事後可補填，填完才能結案）</span></label><textarea class="fta" id="a-improvement" placeholder="負責人員填入後才能結案"></textarea></div>
       <div class="fl fg-full">
         <label>附件照片 <span style="font-size:10px;color:var(--muted);font-weight:400">（最多3張，上傳到 Google Drive）</span></label>
         <div id="photo-upload-container" style="margin-top:4px"></div>
@@ -1690,10 +1694,7 @@ function saveAdd(){
   const keyMap={complaint:'complaints',return:'returns',payment:'payment_fails',dealer:'dealer_complaints'};
   const key=keyMap[type]; const data=getD(key); let item;
   if(type==='complaint'){
-    const lossVal=parseFloat(g('a-loss'))||0;
-    if(!lossVal||lossVal<=0){ document.getElementById('a-loss').classList.add('required-empty'); toast('請填寫客訴訂單金額','error'); return; }
-    if(!g('a-staff')){ document.getElementById('a-staff').classList.add('required-empty'); toast('請填寫負責人員','error'); return; }
-    if(!g('a-improvement')){ document.getElementById('a-improvement').classList.add('required-empty'); toast('請填寫改善方式','error'); return; }
+    // 新增時不強制必填，事後由負責人補填後才能結案
     const photoUrls = getPhotoUrls();
     item={id:'c_'+LS.id(),type:'general',date:g('a-date'),platform:g('a-platform'),
       category:g('a-category'),reason:g('a-reason'),customer:g('a-customer'),
