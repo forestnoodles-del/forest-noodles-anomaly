@@ -166,6 +166,17 @@ tr.resolved td{opacity:.55}
 .toast.show{transform:translateY(0);opacity:1}
 
 
+/* ══ 處理類型勾選 ══ */
+.action-checks{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.action-check{display:flex;align-items:center;gap:6px;padding:6px 12px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;user-select:none;background:#fff}
+.action-check:hover{border-color:var(--green);background:var(--green-l)}
+.action-check.checked{border-color:var(--green);background:var(--green-l);color:var(--forest)}
+.action-check.checked-warn{border-color:var(--orange);background:var(--orange-l);color:var(--orange)}
+.action-check input{display:none}
+.reship-detail{background:var(--lgrey);border-radius:8px;padding:12px 14px;margin-top:8px;border:1px solid var(--border)}
+.reship-status{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;font-family:'Bitter',serif}
+.reship-pending{background:var(--orange-l);color:var(--orange)}
+.reship-done{background:var(--green-l);color:var(--green)}
 /* ══ 照片上傳元件 ══ */
 .photo-upload-area{border:2px dashed var(--border);border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:all .2s;background:#fff;position:relative}
 .photo-upload-area:hover,.photo-upload-area.drag-over{border-color:var(--green);background:var(--green-l)}
@@ -342,6 +353,18 @@ tr.resolved td{opacity:.55}
     <div class="chart-card"><div class="chart-title">平台分布</div><div id="platform-chart"></div></div>
     <div class="chart-card"><div class="chart-title">責任部門</div><div id="category-chart"></div></div>
   </div>
+  <!-- 補寄訂單狀態區塊 -->
+  <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div class="chart-title" style="margin-bottom:2px">📦 補寄訂單狀態</div>
+        <div style="font-size:10px;color:var(--muted)">所有勾選「需要補寄」的客訴記錄</div>
+      </div>
+      <button onclick="filterAndGoComplaints('reship')" class="btn btn-ghost btn-sm">查看全部 →</button>
+    </div>
+    <div id="ov-reship-block"></div>
+  </div>
+
   <!-- 負責人員出錯統計 -->
   <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -390,6 +413,7 @@ tr.resolved td{opacity:.55}
     </select>
     <select id="f-c-status" onchange="renderComplaints()">
       <option value="">全部狀態</option><option value="pending">🔴 未結案</option><option value="resolved">✅ 已結案</option>
+      <option value="reship_pending">📦 待補寄</option>
       <option value="no_staff">⚠ 未填負責人</option><option value="no_improve">⚠ 未填改善方式</option>
     </select>
     <input id="f-c-search" placeholder="搜尋客戶/訂單/品項..." style="width:160px" oninput="renderComplaints()">
@@ -407,7 +431,7 @@ tr.resolved td{opacity:.55}
         <th onclick="srt('complaints','reason')">問題原因 ↕</th>
         <th>客戶</th><th>訂單編號</th>
         <th onclick="srt('complaints','loss')">損失 ↕</th>
-        <th>負責人</th><th>改善方式</th><th>狀態</th><th>操作</th>
+        <th>負責人</th><th>改善方式</th><th>後續處理</th><th>狀態</th><th>操作</th>
       </tr></thead>
       <tbody id="c-tbody"></tbody>
     </table>
@@ -659,6 +683,25 @@ function saveConfig(){
 // PHOTO UPLOAD SYSTEM
 // ════════════════════════════════════════════
 let pendingPhotos=[];
+
+function toggleActionCheck(type){
+  const map={
+    'reship':       {chk:'a-need-reship',      lbl:'chk-reship-label',      detail:'reship-detail-section'},
+    'return-trip':  {chk:'a-need-return-trip',  lbl:'chk-return-trip-label', detail:null},
+    'refund':       {chk:'a-need-refund',        lbl:'chk-refund-label',      detail:null},
+    'goods-return': {chk:'a-need-goods-return',  lbl:'chk-goods-return-label',detail:null},
+  };
+  const m=map[type]; if(!m) return;
+  const chk=document.getElementById(m.chk);
+  if(!chk) return;
+  chk.checked=!chk.checked;
+  const lbl=document.getElementById(m.lbl);
+  if(lbl) lbl.classList.toggle('checked',chk.checked);
+  if(m.detail){
+    const det=document.getElementById(m.detail);
+    if(det) det.style.display=chk.checked?'block':'none';
+  }
+}
 
 function initPhotoUpload(containerId){
   pendingPhotos=[];
@@ -932,17 +975,17 @@ function bWarn(item){
 }
 
 function hasWarn(item){
-  const noStaff   = !item.staff   || item.staff.trim()===''   || item.staff==='-';
+  const noStaff   = !item.staff || item.staff.trim()==='' || item.staff==='-';
   const noImprove = !item.improvement || item.improvement.trim()==='' || item.improvement==='-' || item.improvement==='nan';
-  // 結案前必須填：負責人員 + 改善方式
-  // 客訴訂單金額：若未填則提醒但不擋結案（可能真的0損失）
-  return noStaff || noImprove;
+  // 需要補寄但尚未完成補寄
+  const reshipPending = item.need_reship && !item.reship_done;
+  return noStaff || noImprove || reshipPending;
 }
 function warnReasons(item){
   const missing=[];
   if(!item.staff||item.staff.trim()===''||item.staff==='-') missing.push('負責人員');
   if(!item.improvement||item.improvement.trim()===''||item.improvement==='-'||item.improvement==='nan') missing.push('改善方式');
-  // 軟提醒：金額未填
+  if(item.need_reship&&!item.reship_done) missing.push('補寄未完成');
   if(item.type==='general'&&(item.loss===undefined||item.loss===null||item.loss===''||item.loss===0)){
     missing.push('客訴金額（建議填入）');
   }
@@ -952,6 +995,15 @@ function warnReasons(item){
 // ══════════════════════════════════════════
 // TAB
 // ══════════════════════════════════════════
+function filterAndGoComplaints(filter){
+  switchTabById('complaints');
+  if(filter==='reship'){
+    // 在客訴篩選選「待補寄」
+    const fStatus=document.getElementById('f-c-status');
+    if(fStatus){ fStatus.value='reship_pending'; renderComplaints(); }
+  }
+}
+
 function switchTabById(id){
   const tab=document.querySelector(`.tab[data-tab="${id}"]`);
   if(tab){ switchTab(tab,id); }
@@ -1015,6 +1067,8 @@ function renderOverview(){
   const pendingDeal  = deal.filter(d=>!d.resolved);
   const pendingWarn  = [...comp,...deal].filter(x=>!x.resolved&&hasWarn(x));
   const totalPending = pendingComp.length + pendingDeal.length;
+  // 待補寄（需要補寄但尚未完成）
+  const pendingReship = comp.filter(c=>c.need_reship&&!c.reship_done&&!c.resolved);
   const banner = document.getElementById('ov-pending-banner');
   if(banner){
     if(totalPending>0){
@@ -1037,6 +1091,10 @@ function renderOverview(){
             </div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${pendingReship.length>0?`<button onclick="filterAndGoComplaints('reship')"
+              style="padding:6px 14px;background:rgba(255,220,80,.9);border:none;border-radius:5px;color:#7a5500;font-size:12px;font-weight:700;cursor:pointer;font-family:'Bitter',serif">
+              📦 ${pendingReship.length} 筆待補寄
+            </button>`:''}
             ${pendingWarn.length>0?`<button onclick="document.getElementById('ov-warn-list').scrollIntoView({behavior:'smooth'})"
               style="padding:6px 14px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:5px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Bitter',serif">
               ⚠ 查看未填欄位
@@ -1115,6 +1173,9 @@ function renderOverview(){
     </tbody></table></div>`
     : '<p style="color:var(--forest);font-size:12px;margin-top:8px">✓ 所有記錄均已填寫完整</p>';
 
+  // ── 補寄狀態區塊 ──
+  renderReshipBlock(comp);
+
   // ── 負責人員出錯統計 ──
   renderStaffStats(comp, deal);
 }
@@ -1122,6 +1183,98 @@ function renderOverview(){
 // ══════════════════════════════════════════
 // STAFF STATS
 // ══════════════════════════════════════════
+function renderReshipBlock(comp){
+  const box = document.getElementById('ov-reship-block'); if(!box) return;
+
+  // 所有需要補寄的記錄
+  const all      = comp.filter(c => c.need_reship);
+  const pending  = all.filter(c => !c.reship_done && !c.resolved);
+  const done     = all.filter(c => c.reship_done);
+  const resolved = all.filter(c => c.resolved && c.reship_done);
+
+  if(!all.length){
+    box.innerHTML = '<p style="font-size:12px;color:var(--muted)">目前沒有需要補寄的客訴記錄</p>';
+    return;
+  }
+
+  // 統計列
+  const statRow = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+      <div style="padding:12px 14px;background:var(--orange-l);border-radius:8px;border-left:3px solid var(--orange)">
+        <div style="font-family:'Bitter',serif;font-size:26px;font-weight:700;color:var(--orange);line-height:1">${pending.length}</div>
+        <div style="font-size:10px;color:var(--orange);font-family:'Bitter',serif;text-transform:uppercase;letter-spacing:.5px;margin-top:3px">待補寄</div>
+      </div>
+      <div style="padding:12px 14px;background:var(--green-l);border-radius:8px;border-left:3px solid var(--green)">
+        <div style="font-family:'Bitter',serif;font-size:26px;font-weight:700;color:var(--green);line-height:1">${done.length}</div>
+        <div style="font-size:10px;color:var(--green);font-family:'Bitter',serif;text-transform:uppercase;letter-spacing:.5px;margin-top:3px">已補寄完成</div>
+      </div>
+      <div style="padding:12px 14px;background:var(--lgrey);border-radius:8px;border-left:3px solid var(--mgrey)">
+        <div style="font-family:'Bitter',serif;font-size:26px;font-weight:700;color:var(--muted);line-height:1">${all.length}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:'Bitter',serif;text-transform:uppercase;letter-spacing:.5px;margin-top:3px">補寄記錄合計</div>
+      </div>
+    </div>`;
+
+  // 待補寄清單
+  let pendingList = '';
+  if(pending.length){
+    pendingList = `
+      <div style="font-size:10px;font-family:'Bitter',serif;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--orange);margin-bottom:8px">
+        ⏳ 待補寄（${pending.length}筆）
+      </div>
+      <div class="tbl-wrap" style="margin-bottom:14px">
+        <table>
+          <thead><tr>
+            <th>日期</th><th>客戶</th><th>問題原因</th>
+            <th>補寄品項</th><th>收件人</th><th>收件地址</th><th>操作</th>
+          </tr></thead>
+          <tbody>
+            ${pending.map(c=>`<tr style="background:#fffbf5">
+              <td style="font-family:'Bitter',serif;white-space:nowrap;font-size:11px">${c.date}</td>
+              <td style="font-weight:600;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.customer||'—')}</td>
+              <td>${bReason(c.reason)}</td>
+              <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px" title="${esc(c.reship_items||c.product)}">${esc(c.reship_items||c.product||'—')}</td>
+              <td style="font-size:11px">${esc(c.reship_name||'—')}</td>
+              <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px" title="${esc(c.reship_address)}">${esc(c.reship_address||'—')}</td>
+              <td style="white-space:nowrap">
+                <button class="btn btn-xs btn-ghost" onclick="showDetail('complaint','${c.id}')">詳情</button>
+                <button class="btn btn-xs btn-outline" onclick="markReshipDone('${c.id}')">✓ 完成</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  // 已完成清單（最近5筆，可收合）
+  let doneList = '';
+  if(done.length){
+    const recent = done.slice(-5).reverse();
+    doneList = `
+      <div style="font-size:10px;font-family:'Bitter',serif;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:8px">
+        ✓ 近期已完成（${done.length}筆，顯示最新5筆）
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>日期</th><th>客戶</th><th>問題原因</th><th>補寄品項</th><th>追蹤號</th><th>詳情</th>
+          </tr></thead>
+          <tbody>
+            ${recent.map(c=>`<tr style="opacity:.7">
+              <td style="font-family:'Bitter',serif;white-space:nowrap;font-size:11px">${c.date}</td>
+              <td style="font-weight:600;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.customer||'—')}</td>
+              <td>${bReason(c.reason)}</td>
+              <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${esc(c.reship_items||c.product||'—')}</td>
+              <td style="font-size:11px;font-family:'Bitter',serif;color:var(--muted)">${esc(c.tracking||'—')}</td>
+              <td><button class="btn btn-xs btn-ghost" onclick="showDetail('complaint','${c.id}')">詳情</button></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  box.innerHTML = statRow + pendingList + doneList;
+}
+
 function renderStaffStats(comp, deal){
   const box=document.getElementById('ov-staff-stats'); if(!box) return;
 
@@ -1326,6 +1479,7 @@ function renderComplaints(){
   if(cat) data=data.filter(c=>c.category.includes(cat));
   if(status==='pending') data=data.filter(c=>!c.resolved);
   if(status==='resolved') data=data.filter(c=>c.resolved);
+  if(status==='reship_pending') data=data.filter(c=>c.need_reship&&!c.reship_done);
   if(status==='no_staff') data=data.filter(c=>!c.staff||c.staff==='-');
   if(status==='no_improve') data=data.filter(c=>!c.improvement||c.improvement==='-'||c.improvement==='nan');
   if(search) data=data.filter(c=>[c.customer,c.order_id,c.product,c.description].some(x=>String(x).toLowerCase().includes(search)));
@@ -1344,6 +1498,13 @@ function renderComplaints(){
         <td style="font-family:'Bitter',serif;font-weight:700;color:${c.loss&&c.loss>0?'var(--red)':'var(--muted)'}">${c.loss&&c.loss>0?'NT$'+Number(c.loss).toLocaleString():'─'}</td>
         <td>${c.staff&&c.staff!=='-'?esc(c.staff):badge('未填','b-warn')}</td>
         <td>${c.improvement&&c.improvement!=='-'&&c.improvement!=='nan'?'<span style="color:var(--green)">✓</span>':badge('未填','b-warn')}</td>
+        <td style="white-space:nowrap">
+          ${c.need_reship?`<span class="reship-status ${c.reship_done?'reship-done':'reship-pending'}">${c.reship_done?'✓補寄':'⏳補寄'}</span>`:''}
+          ${c.need_return_trip?`<span class="badge b-blue" style="font-size:9px">來回件</span>`:''}
+          ${c.need_refund?`<span class="badge b-purple" style="font-size:9px">退款</span>`:''}
+          ${c.need_goods_return?`<span class="badge b-orange" style="font-size:9px">退貨</span>`:''}
+          ${!c.need_reship&&!c.need_return_trip&&!c.need_refund&&!c.need_goods_return?'<span style="color:var(--mgrey);font-size:10px">—</span>':''}
+        </td>
         <td>${bStatus(c.resolved)}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-xs btn-ghost" onclick="showDetail('complaint','${c.id}')">詳情</button>
@@ -1451,13 +1612,34 @@ function showDetail(type,id){
     title=`客訴補寄｜${item.customer}`;
     badges=[bReason(item.reason),bCat(item.category),badge(item.platform,'b-green'),bStatus(item.resolved)];
     if(hasWarn(item)&&!item.resolved) badges.push(bWarn(item));
+    // 後續處理 badges
+    const actionBadges=[];
+    if(item.need_reship)      actionBadges.push(`<span class="reship-status ${item.reship_done?'reship-done':'reship-pending'}">${item.reship_done?'✓ 補寄完成':'⏳ 待補寄'}</span>`);
+    if(item.need_return_trip) actionBadges.push(`<span class="badge b-blue">來回件</span>`);
+    if(item.need_refund)      actionBadges.push(`<span class="badge b-purple">退款</span>`);
+    if(item.need_goods_return)actionBadges.push(`<span class="badge b-orange">退貨</span>`);
+
     body=`<div class="df-grid">${df('日期',item.date)}${df('平台',item.platform)}
       ${df('問題分類',item.category)}${df('問題原因',item.reason)}
       ${df('訂單編號',item.order_id,'mono')}${df('損失金額',money(item.loss),'hl')}
       ${df('補寄品項',item.product,'',true)}${df('說明',item.description,'',true)}
       ${df('補寄追蹤號',item.tracking)}${df('配送狀態',item.delivery)}
       ${df('寄出日期',item.ship_date)}${df('負責人員',item.staff||'⚠️ 未填寫','',false)}
-    </div>`;
+    </div>
+    ${actionBadges.length?`<div style="margin:10px 0;display:flex;gap:6px;flex-wrap:wrap"><span style="font-size:10px;color:var(--muted);font-family:'Bitter',serif;text-transform:uppercase;letter-spacing:.5px;align-self:center">後續處理</span>${actionBadges.join('')}</div>`:''}
+    ${item.need_reship?`<div class="reship-detail" style="margin:10px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:11px;font-family:'Bitter',serif;font-weight:700;color:${item.reship_done?'var(--forest)':'var(--orange)'};text-transform:uppercase;letter-spacing:.5px">
+          ${item.reship_done?'✓ 補寄完成':'⏳ 待補寄'}
+        </div>
+        ${!item.reship_done?`<button class="btn btn-xs btn-outline" onclick="markReshipDone('${item.id}')">標記補寄完成</button>`:''}
+      </div>
+      <div class="df-grid">
+        ${df('收件人',item.reship_name||'—')}${df('電話',item.reship_phone||'—')}
+        ${df('收件地址',item.reship_address||'—','',true)}
+        ${df('補寄內容',item.reship_items||item.product||'—','',true)}
+      </div>
+    </div>`:''}`;
     if(item.improvement&&item.improvement!=='-'&&item.improvement!=='nan')
       body+=`<div style="font-size:9px;font-family:'Bitter',serif;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:10px 0 5px">改善方式</div><div class="improve-box">${esc(item.improvement)}</div>`;
     else
@@ -1516,6 +1698,18 @@ function showDetail(type,id){
   document.getElementById('det-body').innerHTML=body;
   document.getElementById('det-footer').innerHTML=footer;
   document.getElementById('mo-detail').classList.add('open');
+}
+
+function markReshipDone(id){
+  if(!confirm('確認補寄已完成並送達？')) return;
+  const data=getD('complaints');
+  const item=data.find(x=>x.id===id); if(!item) return;
+  item.reship_done=true;
+  setD('complaints',data);
+  pushToSheets('complaints',item);
+  closeMo('detail');
+  toast('✓ 補寄已標記完成');
+  renderAll(); renderComplaints();
 }
 
 function resolve(type,id){
@@ -1641,6 +1835,44 @@ function getAddForm(type){
       <div class="fl"><label>訂單編號</label><input class="fi" id="a-order_id"></div>
       <div class="fl fg-full"><label>補寄品項</label><textarea class="fta" id="a-product" style="min-height:56px"></textarea></div>
       <div class="fl fg-full"><label>說明</label><input class="fi" id="a-description"></div>
+
+      <div class="fl fg-full">
+        <label>後續處理方式 <span style="font-size:10px;color:var(--muted);font-weight:400">（可複選）</span></label>
+        <div class="action-checks">
+          <label class="action-check" id="chk-reship-label" onclick="toggleActionCheck('reship')">
+            <input type="checkbox" id="a-need-reship">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            需要補寄
+          </label>
+          <label class="action-check" id="chk-return-trip-label" onclick="toggleActionCheck('return-trip')">
+            <input type="checkbox" id="a-need-return-trip">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            來回件
+          </label>
+          <label class="action-check" id="chk-refund-label" onclick="toggleActionCheck('refund')">
+            <input type="checkbox" id="a-need-refund">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            退款
+          </label>
+          <label class="action-check" id="chk-goods-return-label" onclick="toggleActionCheck('goods-return')">
+            <input type="checkbox" id="a-need-goods-return">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 14l-4-4 4-4M5 10h11a4 4 0 0 1 0 8h-1"/></svg>
+            退貨
+          </label>
+        </div>
+        <!-- 補寄細節（勾選補寄後展開）-->
+        <div id="reship-detail-section" style="display:none" class="reship-detail">
+          <div style="font-size:11px;font-family:'Bitter',serif;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">補寄資訊（必填）</div>
+          <div class="fg" style="margin-bottom:0">
+            <div class="fl"><label>收件人姓名</label><input class="fi" id="a-reship-name" placeholder="收件人姓名"></div>
+            <div class="fl"><label>收件電話</label><input class="fi" id="a-reship-phone" placeholder="0912-345-678"></div>
+            <div class="fl fg-full"><label>收件地址</label><input class="fi" id="a-reship-address" placeholder="縣市 + 詳細地址"></div>
+            <div class="fl fg-full"><label>補寄內容</label><textarea class="fta" id="a-reship-items" placeholder="補寄商品品項" style="min-height:48px"></textarea></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px">⚡ 寄出後請至「編輯」填入追蹤號，配送確認後才算補寄完成</div>
+        </div>
+      </div>
+
       <div class="fl"><label>客訴訂單金額 <span style="font-size:10px;color:var(--muted);font-weight:400">（事後可補填）</span></label><input class="fi" id="a-loss" type="number" min="0" placeholder="補寄成本 / 客訴訂單金額"></div>
       <div class="fl"><label>負責人員 <span style="font-size:10px;color:var(--muted);font-weight:400">（事後可補填）</span></label><input class="fi" id="a-staff" placeholder="主管指派後填入"></div>
       <div class="fl fg-full"><label>改善方式 <span style="font-size:10px;color:var(--muted);font-weight:400">（事後可補填，填完才能結案）</span></label><textarea class="fta" id="a-improvement" placeholder="負責人員填入後才能結案"></textarea></div>
@@ -1696,12 +1928,27 @@ function saveAdd(){
   if(type==='complaint'){
     // 新增時不強制必填，事後由負責人補填後才能結案
     const photoUrls = getPhotoUrls();
+    const needReship     = document.getElementById('a-need-reship')?.checked||false;
+    const needReturnTrip = document.getElementById('a-need-return-trip')?.checked||false;
+    const needRefund     = document.getElementById('a-need-refund')?.checked||false;
+    const needGoodsReturn= document.getElementById('a-need-goods-return')?.checked||false;
     item={id:'c_'+LS.id(),type:'general',date:g('a-date'),platform:g('a-platform'),
       category:g('a-category'),reason:g('a-reason'),customer:g('a-customer'),
       order_id:g('a-order_id'),product:g('a-product'),description:g('a-description'),
       loss:parseFloat(g('a-loss'))||0,staff:g('a-staff'),improvement:g('a-improvement'),
       photos: photoUrls,
-      resolved:false,ship_date:'',tracking:'',delivery:'未配送'};
+      // 後續處理
+      need_reship: needReship,
+      need_return_trip: needReturnTrip,
+      need_refund: needRefund,
+      need_goods_return: needGoodsReturn,
+      // 補寄資料
+      reship_name:    needReship?g('a-reship-name'):'',
+      reship_phone:   needReship?g('a-reship-phone'):'',
+      reship_address: needReship?g('a-reship-address'):'',
+      reship_items:   needReship?g('a-reship-items'):'',
+      reship_done:    false,   // 補寄是否已完成
+      resolved:false,ship_date:'',tracking:'',delivery:''};
   } else if(type==='return'){
     item={id:'r_'+LS.id(),type:'return',date:g('a-date'),channel:g('a-channel'),
       customer:g('a-customer'),order_id:g('a-order_id'),reason:g('a-reason'),
