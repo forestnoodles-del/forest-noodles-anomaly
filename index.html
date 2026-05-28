@@ -840,18 +840,23 @@ async function syncSheets(){
   setSyncStatus('syncing');
   document.getElementById('sync-btn').disabled=true;
   try{
-    // 讀取 Sheets 資料
     const res=await fetch(cfg.scriptUrl+'?action=read&sheetId='+cfg.sheetId);
     if(!res.ok) throw new Error('HTTP '+res.status);
     const data=await res.json();
     if(data.error) throw new Error(data.error);
-    // 合併：以 Sheets 資料為主，但保留 local 的新增（沒有在 Sheets 的）
+
+    // 合併：保留 localStorage 裡有但 Sheet 沒有的資料（本地新增）
     ['complaints','returns','payment_fails','dealer_complaints'].forEach(k=>{
-      if(data[k]&&data[k].length) setD(k,data[k]);
+      if(!data[k]||!data[k].length) return;
+      const sheetIds = new Set(data[k].map(x=>String(x.id||'')).filter(Boolean));
+      const localOnly = getD(k).filter(x=>x.id&&!sheetIds.has(String(x.id)));
+      // 本地獨有的新增資料放在最後
+      setD(k, [...data[k], ...localOnly]);
     });
+
     setSyncStatus('ok');
     setSyncTime(new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}));
-    toast('✓ 已從 Sheets 同步');
+    toast('✓ 已從 Sheets 同步（保留本地新增資料）');
     renderAll();
   }catch(e){
     setSyncStatus('error');
@@ -2173,18 +2178,13 @@ globalPeriod={from:'',to:''};
 renderAll();
 
 // 每次開啟自動同步（若已設定 Script URL）
-(async()=>{
-  const cfg=getCfg();
-  if(cfg.scriptUrl){
-    const t=document.getElementById('sync-time');
-    if(t) t.textContent='同步中...';
-    await syncSheets();
-  } else {
-    // 未設定：純用 localStorage + seed data，顯示離線提示
-    setSyncStatus('error');
-    document.getElementById('sync-time').textContent='未設定 Sheets';
-  }
-})();
+// 自動同步已關閉，避免蓋掉本地新增的資料
+const _cfg0=getCfg();
+if(!_cfg0.scriptUrl){
+  setSyncStatus('error');
+  const _st=document.getElementById('sync-time');
+  if(_st) _st.textContent='請至設定填入 Script URL';
+}
 </script>
 </body>
 </html>
