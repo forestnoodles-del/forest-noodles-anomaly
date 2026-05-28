@@ -619,9 +619,12 @@ tr.resolved td{opacity:.55}
       <button class="modal-close" onclick="closeMo('edit')">✕</button>
     </div>
     <div class="modal-body" id="edit-body"></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeMo('edit')">取消</button>
-      <button class="btn btn-primary" id="edit-save-btn" onclick="saveEdit()">儲存變更</button>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="deleteCurrentEdit()">刪除此記錄</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="closeMo('edit')">取消</button>
+        <button class="btn btn-primary" id="edit-save-btn" onclick="saveEdit()">儲存變更</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1607,7 +1610,9 @@ function renderReturns(){
         <td>${r.reshiped?badge('已補寄','b-green'):badge('未補寄','b-red')}</td>
         <td style="font-family:'Bitter',serif">${r.repurchase_amount?money(r.repurchase_amount):'—'}</td>
         <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--muted)">${esc(r.contact_log||'')}</td>
-        <td><button class="btn btn-xs btn-ghost" onclick="showDetail('return','${r.id}')">詳情</button></td>
+        <td style="white-space:nowrap;display:flex;gap:4px">
+          <button class="btn btn-xs btn-ghost" onclick="showDetail('return','${r.id}')">詳情</button>
+        </td>
       </tr>`).join('')
     : '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">此篩選無資料</td></tr>';
 }
@@ -1632,7 +1637,9 @@ function renderPayments(){
         <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--muted)">${esc(p.contact_log||'')}</td>
         <td>${p.repurchased?badge('已回購','b-green'):badge('未回購','b-red')}</td>
         <td style="font-family:'Bitter',serif">${p.repurchase_amount?money(p.repurchase_amount):'—'}</td>
-        <td><button class="btn btn-xs btn-ghost" onclick="showDetail('payment','${p.id}')">詳情</button></td>
+        <td style="white-space:nowrap;display:flex;gap:4px">
+          <button class="btn btn-xs btn-ghost" onclick="showDetail('payment','${p.id}')">詳情</button>
+        </td>
       </tr>`).join('')
     : '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">此篩選無資料</td></tr>';
 }
@@ -1660,7 +1667,7 @@ function renderDealers(){
         <td>${d.staff&&d.staff!=='-'?esc(d.staff):badge('未填','b-warn')}</td>
         <td>${d.improvement&&d.improvement!=='-'?'<span style="color:var(--green)">✓</span>':badge('未填','b-warn')}</td>
         <td>${bStatus(d.resolved)}</td>
-        <td style="white-space:nowrap">
+        <td style="white-space:nowrap;display:flex;gap:4px">
           <button class="btn btn-xs btn-ghost" onclick="showDetail('dealer','${d.id}')">詳情</button>
           <button class="btn btn-xs btn-outline" onclick="openEdit('dealer','${d.id}')">編輯</button>
         </td>
@@ -1771,6 +1778,27 @@ function showDetail(type,id){
   document.getElementById('det-body').innerHTML=body;
   document.getElementById('det-footer').innerHTML=footer;
   document.getElementById('mo-detail').classList.add('open');
+}
+
+function deleteCurrentEdit(){
+  const {type, id} = editCtx;
+  if(!type || !id) return;
+  if(!confirm('確定要刪除這筆記錄？此動作無法復原。')) return;
+  deleteRecord(type, id);
+  closeMo('edit');
+}
+
+function deleteRecord(type, id){
+  if(!confirm('確定要刪除這筆記錄？此動作無法復原。')) return;
+  const keyMap = {complaint:'complaints', return:'returns', payment:'payment_fails', dealer:'dealer_complaints'};
+  const key = keyMap[type];
+  if(!key) return;
+  const data = getD(key).filter(x => x.id !== id);
+  setD(key, data);
+  toast('✓ 已刪除');
+  renderAll();
+  const renders = {complaints:renderComplaints, returns:renderReturns, payment_fails:renderPayments, dealer_complaints:renderDealers};
+  if(renders[key]) renders[key]();
 }
 
 function quickResolve(id){
