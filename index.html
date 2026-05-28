@@ -2149,7 +2149,14 @@ function res(data) {
 function v(id){return document.getElementById(id)?.value||''}
 function nl2sp(s){return String(s||'').split('\n').join(' ')}
 document.querySelectorAll('.mo').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}));
-setPeriod('all',document.querySelector('#ov-period .period-preset'));
+// 預設全部分頁都用「全部」時間範圍
+['c','r','p','d'].forEach(prefix=>{
+  const btn = document.querySelector(`#panel-${prefix==='c'?'complaints':prefix==='r'?'returns':prefix==='p'?'payments':'dealers'} .period-preset`);
+  if(btn) setPeriodFor(prefix, btn, 'all');
+});
+// 總覽也用全部
+const allBtn = Array.from(document.querySelectorAll('#ov-period .period-preset')).find(b=>b.textContent.trim()==='全部');
+setPeriod('all', allBtn||document.querySelector('#ov-period .period-preset'));
 renderOverview();
 
 // 每次開啟自動同步（若已設定 Script URL）
