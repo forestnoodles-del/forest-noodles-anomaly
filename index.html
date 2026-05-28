@@ -861,18 +861,33 @@ async function syncSheets(){
   document.getElementById('sync-btn').disabled=false;
 }
 
-async function pushToSheets(key,item,action='upsert'){
+function pushToSheets(key,item){
   const cfg=getCfg();
   if(!cfg.scriptUrl) return;
   try{
-    // 用 GET + URL參數方式，完全繞過 CORS 問題
-    const payload = encodeURIComponent(JSON.stringify({action,key,item,sheetId:cfg.sheetId}));
-    const url = cfg.scriptUrl + '?method=write&data=' + payload;
-    // 用 <img> tag 發 GET 請求，完全無 CORS 限制
-    const img = new Image();
-    img.src = url;
-    setSyncStatus('ok');
-    setSyncTime(new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}));
+    // JSONP 方式：用 <script> 標籤發 GET 請求，完全無 CORS 限制
+    const cbName = 'cb_'+Date.now();
+    const payload = encodeURIComponent(JSON.stringify({key,item,sheetId:cfg.sheetId}));
+    const url = cfg.scriptUrl+'?method=write&callback='+cbName+'&data='+payload;
+    const script = document.createElement('script');
+    script.src = url;
+    window[cbName] = function(result){
+      delete window[cbName];
+      document.head.removeChild(script);
+      if(result&&result.ok){
+        setSyncStatus('ok');
+        setSyncTime(new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}));
+        console.log('✓ 已同步到 Sheet:', result.action);
+      } else {
+        console.warn('Sheet 回應:', JSON.stringify(result));
+      }
+    };
+    script.onerror = function(){
+      delete window[cbName];
+      try{document.head.removeChild(script);}catch(e){}
+      setSyncStatus('error');
+    };
+    document.head.appendChild(script);
   }catch(e){
     setSyncStatus('error');
   }
