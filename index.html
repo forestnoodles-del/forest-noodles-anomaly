@@ -2,6 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>森林麵食｜訂單異常管理</title>
@@ -579,6 +580,35 @@ tr.resolved td{opacity:.55}
       <button class="btn btn-outline" onclick="testConnection()">測試連線</button>
     </div>
     <div id="conn-result" style="margin-top:10px;font-size:11px"></div>
+  </div>
+
+  <!-- 匯出區塊 -->
+  <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:14px">
+    <div style="font-family:'Bitter',serif;font-size:15px;font-weight:700;color:var(--forest);margin-bottom:4px">📋 匯出資料到 Google Sheet</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px">下載 Excel 檔案，匯入 Google Sheet 覆蓋現有資料。每次新增或修改後定期匯出即可。</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-primary" onclick="downloadExcel()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        下載 Excel（四個頁籤）
+      </button>
+      <span id="export-confirm" style="font-size:13px;color:var(--green);display:none">✓ 下載中...</span>
+    </div>
+    <div style="margin-top:12px;padding:10px 14px;background:var(--green-l);border-radius:6px;font-size:12px;color:var(--forest)">
+      <strong>匯入到 Google Sheet 步驟：</strong><br>
+      Google Sheet → 檔案 → 匯入 → 上傳 → 選擇匯出的 xlsx → 取代試算表
+    </div>
+  </div>
+
+  <!-- 負責人員名單 -->
+  <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:14px">
+    <div style="font-family:'Bitter',serif;font-size:15px;font-weight:700;color:var(--forest);margin-bottom:4px">👥 負責人員名單</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">新增後，填寫客訴時可直接下拉選擇，不需手動輸入</p>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input id="new-staff-input" class="fi" placeholder="輸入人員名稱" style="flex:1;max-width:200px"
+        onkeydown="if(event.key==='Enter')addStaffMember()">
+      <button class="btn btn-primary btn-sm" onclick="addStaffMember()">＋ 新增</button>
+    </div>
+    <div id="staff-list" style="display:flex;flex-wrap:wrap;gap:8px"></div>
   </div>
 
   <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:14px">
@@ -1870,7 +1900,11 @@ function openEdit(type,id){
         <input class="fi" id="e-loss" type="number" min="0"
           value="${item.loss||''}" placeholder="補寄成本 / 客訴訂單金額"></div>
       <div class="fl"><label>負責人員 <span style="color:var(--red)">*必填</span></label>
-        <input class="fi${missingStaff?' required-empty':''}" id="e-staff" value="${esc(item.staff||'')}" placeholder="填入負責人員姓名" oninput="this.classList.remove('required-empty')"></div>
+        <input class="fi${missingStaff?' required-empty':''}" id="e-staff" value="${esc(item.staff||'')}"
+          placeholder="填入或選擇負責人員" list="staff-datalist"
+          oninput="this.classList.remove('required-empty')">
+        <datalist id="staff-datalist">${getStaffList().map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+      </div>
       <div class="fl"><label>寄出日期</label>
         <input class="fi" id="e-ship" type="date" value="${item.ship_date||''}"></div>
       <div class="fl fg-full"><label>補寄追蹤號</label>
@@ -1987,7 +2021,10 @@ function getAddForm(type){
       </div>
 
       <div class="fl"><label>客訴訂單金額 <span style="font-size:10px;color:var(--muted);font-weight:400">（事後可補填）</span></label><input class="fi" id="a-loss" type="number" min="0" placeholder="補寄成本 / 客訴訂單金額"></div>
-      <div class="fl"><label>負責人員 <span style="font-size:10px;color:var(--muted);font-weight:400">（事後可補填）</span></label><input class="fi" id="a-staff" placeholder="主管指派後填入"></div>
+      <div class="fl"><label>負責人員 <span style="font-size:10px;color:var(--muted);font-weight:400">（事後可補填）</span></label>
+        <input class="fi" id="a-staff" placeholder="主管指派後填入" list="staff-datalist-add">
+        <datalist id="staff-datalist-add">${getStaffList().map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+      </div>
       <div class="fl fg-full"><label>改善方式 <span style="font-size:10px;color:var(--muted);font-weight:400">（事後可補填，填完才能結案）</span></label><textarea class="fta" id="a-improvement" placeholder="負責人員填入後才能結案"></textarea></div>
       <div class="fl fg-full">
         <label>附件照片 <span style="font-size:10px;color:var(--muted);font-weight:400">（最多3張，上傳到 Google Drive）</span></label>
@@ -2092,12 +2129,195 @@ function saveAdd(){
 // ══════════════════════════════════════════
 // SETTINGS
 // ══════════════════════════════════════════
+function downloadExcel(){
+  if(typeof XLSX==='undefined'){
+    toast('Excel 載入中，請稍候再試','error'); return;
+  }
+  const wb = XLSX.utils.book_new();
+
+  // 顏色定義
+  const COL_GREEN_H = {fgColor:{rgb:'145532'}}; // 深綠 header
+  const COL_GREEN   = {fgColor:{rgb:'E3F4EC'}}; // 已結案
+  const COL_YELLOW  = {fgColor:{rgb:'FDF5DC'}}; // 待補填
+  const COL_ORANGE  = {fgColor:{rgb:'FFF5EC'}}; // 待補寄
+  const COL_WHITE   = {fgColor:{rgb:'FFFFFF'}}; // 進行中
+
+  const HDR_STYLE = {
+    fill: COL_GREEN_H,
+    font: {bold:true, color:{rgb:'FFFFFF'}, name:'Arial', sz:10},
+    alignment: {horizontal:'center', vertical:'center', wrapText:true},
+    border: {top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}}
+  };
+  const CELL_BORDER = {
+    border: {top:{style:'thin',color:{rgb:'D8D4CC'}},bottom:{style:'thin',color:{rgb:'D8D4CC'}},left:{style:'thin',color:{rgb:'D8D4CC'}},right:{style:'thin',color:{rgb:'D8D4CC'}}}
+  };
+
+  function rowStyle(fill){
+    return {fill, font:{name:'Arial',sz:10}, alignment:{vertical:'center',wrapText:true},
+      border:{top:{style:'thin',color:{rgb:'D8D4CC'}},bottom:{style:'thin',color:{rgb:'D8D4CC'}},left:{style:'thin',color:{rgb:'D8D4CC'}},right:{style:'thin',color:{rgb:'D8D4CC'}}}};
+  }
+
+  function applyStyles(ws, headers, numRows, getRowFill){
+    const numCols = headers.length;
+    // Header row
+    for(let c=0;c<numCols;c++){
+      const addr = XLSX.utils.encode_cell({r:0,c});
+      if(!ws[addr]) ws[addr]={v:headers[c],t:'s'};
+      ws[addr].s = HDR_STYLE;
+    }
+    // Data rows
+    for(let r=1;r<=numRows;r++){
+      const fill = getRowFill(r-1);
+      const st = rowStyle(fill);
+      for(let c2=0;c2<numCols;c2++){
+        const addr2 = XLSX.utils.encode_cell({r,c:c2});
+        if(!ws[addr2]) ws[addr2]={v:'',t:'s'};
+        ws[addr2].s = st;
+      }
+    }
+    ws['!rows'] = [{hpt:24},...Array(numRows).fill({hpt:20})];
+  }
+
+  // ── 一般客訴 ──
+  const cHeaders = ['結案','填寫日期','問題分類','問題原因','說明','平台','訂單編號','訂購姓名','補寄品項','備註','損失金額','寄出日期','補寄貨運單號','補寄收貨確認','負責人員','改善方式','後續處理','補寄收件人','補寄電話','補寄地址','補寄內容','id'];
+  const cData = getD('complaints');
+  const cRows = cData.map(x=>[
+    x.resolved?'✓':'', x.date, x.category, x.reason, x.description,
+    x.platform, x.order_id, x.customer, x.product, x.note,
+    x.loss||'', x.ship_date||'', x.tracking||'', x.delivery||'', x.staff||'', x.improvement||'',
+    [x.need_reship&&'補寄',x.need_return_trip&&'來回件',x.need_refund&&'退款',x.need_goods_return&&'退貨'].filter(Boolean).join('/'),
+    x.reship_name||'', x.reship_phone||'', x.reship_address||'', x.reship_items||'', x.id
+  ]);
+  const ws1 = XLSX.utils.aoa_to_sheet([cHeaders,...cRows]);
+  ws1['!cols'] = [8,12,10,14,22,8,22,12,28,20,10,12,18,12,10,32,12,12,14,24,20,16].map(w=>({wch:w}));
+  applyStyles(ws1, cHeaders, cRows.length, i=>{
+    const x=cData[i];
+    if(x.resolved) return COL_GREEN;
+    if(hasWarn(x)) return COL_YELLOW;
+    if(x.need_reship&&!x.reship_done) return COL_ORANGE;
+    return COL_WHITE;
+  });
+  XLSX.utils.book_append_sheet(wb, ws1, '客人客訴補寄追蹤');
+
+  // ── 退貨 ──
+  const rHeaders = ['填寫日期','通路','訂單編號','退貨原因','客戶姓名','退貨金額','已補寄','回購金額','品項','聯繫記錄','id'];
+  const rData = getD('returns');
+  const rRows = rData.map(x=>[
+    x.date, x.channel, x.order_id, x.reason, x.customer,
+    x.amount||'', x.reshiped?'✓':'', x.repurchase_amount||'',
+    x.product, x.contact_log, x.id
+  ]);
+  const ws2 = XLSX.utils.aoa_to_sheet([rHeaders,...rRows]);
+  ws2['!cols'] = [12,8,22,14,12,10,8,10,28,28,16].map(w=>({wch:w}));
+  applyStyles(ws2, rHeaders, rRows.length, i=>{
+    return rData[i].reshiped ? COL_GREEN : COL_WHITE;
+  });
+  XLSX.utils.book_append_sheet(wb, ws2, '訂單退貨');
+
+  // ── 付款失敗 ──
+  const pHeaders = ['填寫日期','平台','失敗原因','訂單編號','客戶姓名','品項','金額','聯繫記錄','已回購','回購日期','回購金額','備註','id'];
+  const pData = getD('payment_fails');
+  const pRows = pData.map(x=>[
+    x.date, x.platform, x.fail_reason, x.order_id, x.customer,
+    x.product, x.amount||'', x.contact_log,
+    x.repurchased?'✓':'', x.repurchase_date||'', x.repurchase_amount||'',
+    x.error_note||'', x.id
+  ]);
+  const ws3 = XLSX.utils.aoa_to_sheet([pHeaders,...pRows]);
+  ws3['!cols'] = [12,8,16,22,12,28,10,28,8,12,10,28,16].map(w=>({wch:w}));
+  applyStyles(ws3, pHeaders, pRows.length, i=>{
+    return pData[i].repurchased ? COL_GREEN : COL_WHITE;
+  });
+  XLSX.utils.book_append_sheet(wb, ws3, '付款失敗追蹤');
+
+  // ── 經銷客訴 ──
+  const dHeaders = ['結案','填寫日期','廠商名稱','問題分類','問題原因','說明','補寄產品','備註','寄出日期','補寄貨運單號','負責人員','改善方式','id'];
+  const dData = getD('dealer_complaints');
+  const dRows = dData.map(x=>[
+    x.resolved?'✓':'', x.date, x.dealer, x.category, x.reason,
+    x.description, x.product||'', x.note||'',
+    x.ship_date||'', x.tracking||'', x.staff||'', x.improvement||'', x.id
+  ]);
+  const ws4 = XLSX.utils.aoa_to_sheet([dHeaders,...dRows]);
+  ws4['!cols'] = [8,12,16,10,14,28,22,20,12,18,10,32,16].map(w=>({wch:w}));
+  applyStyles(ws4, dHeaders, dRows.length, i=>{
+    const x=dData[i];
+    if(x.resolved) return COL_GREEN;
+    if(hasWarn(x)) return COL_YELLOW;
+    return COL_WHITE;
+  });
+  XLSX.utils.book_append_sheet(wb, ws4, '經銷客訴補寄');
+
+  // 說明頁（顏色圖例）
+  const legend = [
+    ['顏色說明','狀態'],
+    ['✓ 已結案（請在Google Sheet手動標示綠色）','E3F4EC'],
+    ['⚠ 待補填（請在Google Sheet手動標示黃色）','FDF5DC'],
+    ['⏳ 待補寄（請在Google Sheet手動標示橘色）','FFF5EC'],
+    ['進行中（白色）','FFFFFF'],
+  ];
+  const wsL = XLSX.utils.aoa_to_sheet(legend);
+  wsL['!cols'] = [{wch:45},{wch:15}];
+  XLSX.utils.book_append_sheet(wb, wsL, '顏色說明');
+
+  const date = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, '森林麵食_訂單異常_'+date+'.xlsx');
+  const el=document.getElementById('export-confirm');
+  if(el){el.style.display='inline';setTimeout(()=>el.style.display='none',2000);}
+  toast('✓ Excel 已下載（含顏色標示）');
+}
+
+// ── 負責人員名單管理 ──
+function getStaffList(){
+  return LS.get('staff_list') || ['宸禎','金魚','禎姊','雅萱','昱秀','佩甄','小魚','子毅','嘉欣','宣','小余','語彤'];
+}
+
+function saveStaffList(list){
+  LS.set('staff_list', list);
+}
+
+function addStaffMember(){
+  const input = document.getElementById('new-staff-input');
+  if(!input) return;
+  const name = input.value.trim();
+  if(!name){ toast('請輸入人員名稱','error'); return; }
+  const list = getStaffList();
+  if(list.includes(name)){ toast('此人員已存在','error'); return; }
+  list.push(name);
+  saveStaffList(list);
+  input.value = '';
+  renderStaffListUI();
+  toast('✓ 已新增 ' + name);
+}
+
+function removeStaffMember(name){
+  if(!confirm('確定移除「' + name + '」？')) return;
+  const list = getStaffList().filter(s => s !== name);
+  saveStaffList(list);
+  renderStaffListUI();
+  toast('✓ 已移除 ' + name);
+}
+
+function renderStaffListUI(){
+  const box = document.getElementById('staff-list');
+  if(!box) return;
+  const list = getStaffList();
+  box.innerHTML = list.length
+    ? list.map(name => `
+        <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:var(--green-l);border:1px solid var(--green);border-radius:20px;font-size:13px;font-weight:600;color:var(--forest)">
+          ${esc(name)}
+          <button onclick="removeStaffMember('${esc(name)}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;line-height:1;padding:0">✕</button>
+        </div>`).join('')
+    : '<p style="font-size:12px;color:var(--muted)">尚未新增人員，點上方「＋ 新增」加入</p>';
+}
+
 function renderSettings(){
   const cfg=getCfg();
   const su=document.getElementById('cfg-script-url');
   const si=document.getElementById('cfg-sheet-id');
   if(su&&cfg.scriptUrl) su.value=cfg.scriptUrl;
   if(si&&cfg.sheetId)   si.value=cfg.sheetId;
+  renderStaffListUI();
   // Apps Script code
   const code=`const SHEET_MAP = {
   complaints:        '客人客訴補寄追蹤',
