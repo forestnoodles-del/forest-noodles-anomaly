@@ -472,6 +472,12 @@ tr.resolved td{opacity:.55}
       <option value="">全部狀態</option><option value="reshiped">已補寄</option><option value="pending">未補寄</option>
     </select>
     <input id="f-r-search" placeholder="搜尋..." style="width:140px" oninput="renderReturns()">
+    <select id="f-r-sort" onchange="renderReturns()" style="padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:#fff;outline:none">
+      <option value="date_desc">時間：近 → 遠</option>
+      <option value="date_asc">時間：遠 → 近</option>
+      <option value="amount_desc">金額：大 → 小</option>
+      <option value="amount_asc">金額：小 → 大</option>
+    </select>
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
       <span class="filter-count" id="r-count"></span>
       <button class="btn btn-primary btn-sm" onclick="openAdd('return')">＋ 新增</button>
@@ -505,6 +511,12 @@ tr.resolved td{opacity:.55}
   <div class="filter-bar">
     <select id="f-p-status" onchange="renderPayments()">
       <option value="">全部</option><option value="repurchased">已回購</option><option value="pending">未回購</option>
+    </select>
+    <select id="f-p-sort" onchange="renderPayments()" style="padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:#fff;outline:none">
+      <option value="date_desc">時間：近 → 遠</option>
+      <option value="date_asc">時間：遠 → 近</option>
+      <option value="amount_desc">金額：大 → 小</option>
+      <option value="amount_asc">金額：小 → 大</option>
     </select>
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
       <span class="filter-count" id="p-count"></span>
@@ -546,6 +558,10 @@ tr.resolved td{opacity:.55}
       <option value="">全部分類</option><option>出貨</option><option>包裝</option><option>物流</option><option>其他</option>
     </select>
     <input id="f-d-search" placeholder="搜尋廠商..." style="width:140px" oninput="renderDealers()">
+    <select id="f-d-sort" onchange="renderDealers()" style="padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:#fff;outline:none">
+      <option value="date_desc">時間：近 → 遠</option>
+      <option value="date_asc">時間：遠 → 近</option>
+    </select>
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
       <span class="filter-count" id="d-count"></span>
       <button class="btn btn-primary btn-sm" onclick="openAdd('dealer')">＋ 新增</button>
@@ -1627,6 +1643,11 @@ function renderReturns(){
   if(st==='pending') data=data.filter(r=>!r.reshiped);
   if(sr) data=data.filter(r=>[r.customer,r.order_id,r.product].some(x=>String(x).toLowerCase().includes(sr)));
   data=applySort(data,'returns');
+  const rSort=document.getElementById('f-r-sort')?.value||'date_desc';
+  if(rSort==='date_desc') data=[...data].sort((a,b)=>b.date.localeCompare(a.date));
+  else if(rSort==='date_asc') data=[...data].sort((a,b)=>a.date.localeCompare(b.date));
+  else if(rSort==='amount_desc') data=[...data].sort((a,b)=>(b.amount||0)-(a.amount||0));
+  else if(rSort==='amount_asc') data=[...data].sort((a,b)=>(a.amount||0)-(b.amount||0));
   const total=data.reduce((s,r)=>s+(r.amount||0),0);
   document.getElementById('r-count').textContent=`${data.length} 筆｜合計 ${money(total)}`;
   document.getElementById('r-tbody').innerHTML=data.length
@@ -1655,6 +1676,11 @@ function renderPayments(){
   if(st==='repurchased') data=data.filter(p=>p.repurchased);
   if(st==='pending') data=data.filter(p=>!p.repurchased);
   data=applySort(data,'payment_fails');
+  const pSort=document.getElementById('f-p-sort')?.value||'date_desc';
+  if(pSort==='date_desc') data=[...data].sort((a,b)=>b.date.localeCompare(a.date));
+  else if(pSort==='date_asc') data=[...data].sort((a,b)=>a.date.localeCompare(b.date));
+  else if(pSort==='amount_desc') data=[...data].sort((a,b)=>(b.amount||0)-(a.amount||0));
+  else if(pSort==='amount_asc') data=[...data].sort((a,b)=>(a.amount||0)-(b.amount||0));
   document.getElementById('p-count').textContent=`${data.length} 筆｜${money(data.reduce((s,p)=>s+(p.amount||0),0))}`;
   document.getElementById('p-tbody').innerHTML=data.length
     ? data.map(p=>`<tr>
@@ -1686,6 +1712,9 @@ function renderDealers(){
   if(cat) data=data.filter(d=>d.category===cat);
   if(sr)  data=data.filter(d=>[d.dealer,d.description,d.reason].some(x=>String(x).toLowerCase().includes(sr)));
   data=applySort(data,'dealer_complaints');
+  const dSort=document.getElementById('f-d-sort')?.value||'date_desc';
+  if(dSort==='date_desc') data=[...data].sort((a,b)=>b.date.localeCompare(a.date));
+  else if(dSort==='date_asc') data=[...data].sort((a,b)=>a.date.localeCompare(b.date));
   document.getElementById('d-count').textContent=`${data.length} 筆`;
   document.getElementById('d-tbody').innerHTML=data.length
     ? data.map(d=>`<tr class="${d.resolved?'resolved':''}${hasWarn(d)&&!d.resolved?' warn-row':''}">
